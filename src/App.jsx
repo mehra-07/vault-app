@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-const API_BASE = 'http://localhost:5000/api/vault';
-const AUTH_BASE = 'http://localhost:5000/api/auth';
-const SERVER_URL = 'http://localhost:5000';
+// Aapka live Render backend URL
+const SERVER_URL = 'https://vault-app-eqhu.onrender.com';
+const API_BASE = `${SERVER_URL}/api/vault`;
+const AUTH_BASE = `${SERVER_URL}/api/auth`;
 
 export default function App() {
   const [user, setUser] = useState(localStorage.getItem('vaultUser') || null);
@@ -13,11 +14,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
 
-  const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem('vaultItemsData');
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [activeMedia, setActiveMedia] = useState(null);
 
@@ -37,9 +34,27 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [zipping, setZipping] = useState(false);
 
+  // Database se user specific items fetch karna
+  const fetchVaultItems = useCallback(async (username) => {
+    if (!username) return;
+    try {
+      const res = await fetch(`${API_BASE}?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setItems(data);
+        if (data.length > 0) setActiveMedia(data[0]);
+      }
+    } catch (err) {
+      console.error('Data fetch error:', err);
+    }
+  }, []);
+
+  // Login rehne par automatically database se items load karna
   useEffect(() => {
-    localStorage.setItem('vaultItemsData', JSON.stringify(items));
-  }, [items]);
+    if (user) {
+      fetchVaultItems(user);
+    }
+  }, [user, fetchVaultItems]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -55,7 +70,7 @@ export default function App() {
       const res = await fetch(`${AUTH_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: authUsername, password: authPassword }),
+        body: JSON.stringify({ username: authUsername.trim(), password: authPassword }),
       });
       const data = await res.json();
       if (!data.success) {
@@ -64,129 +79,128 @@ export default function App() {
       }
       setUser(data.user);
       localStorage.setItem('vaultUser', data.user);
+      fetchVaultItems(data.user);
     } catch {
-      const fallbackUser = authUsername.trim() || 'Rohit Mehra';
-      setUser(fallbackUser);
-      localStorage.setItem('vaultUser', fallbackUser);
+      setAuthError('Server se connect nahi ho paya. Kripya check karein.');
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('vaultUser');
     setUser(null);
+    setItems([]);
     setActiveMedia(null);
   };
 
   const existingFolders = Array.from(new Set(items.map(i => i.folder || 'General')));
   const finalFolderName = folderMode === 'new' ? (newFolderName.trim() || 'General') : chosenFolder;
 
+  // Media & Links ko Cloudinary aur MongoDB me store karna
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
 
+    // 1. Google Drive Link Save Karna
     if (uploadMethod === 'drive') {
       if (!driveUrl) return alert('Google Drive Link zaroori hai.');
-      const newItem = {
-        _id: Date.now().toString(),
-        name: driveFileName.trim() || 'Google Drive File',
-        url: driveUrl.trim(),
-        type: 'link/drive',
-        folder: finalFolderName,
-        username: user
-      };
-      setItems(prev => [newItem, ...prev]);
-      alert('Google Drive Link Saved!');
-      setDriveUrl('');
-      setDriveFileName('');
+      try {
+        const res = await fetch(API_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: driveFileName.trim() || 'Google Drive File',
+            url: driveUrl.trim(),
+            type: 'link/drive',
+            folder: finalFolderName,
+            username: user
+          })
+        });
+        const savedItem = await res.json();
+        setItems(prev => [savedItem, ...prev]);
+        alert('Google Drive Link Cloud par save ho gaya!');
+        setDriveUrl('');
+        setDriveFileName('');
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      }
       return;
     }
 
+    // 2. Local Files ya ZIP upload karna
     if (!files || files.length === 0) return alert('Pehle koi file choose karein!');
 
     setUploading(true);
-    setProgress(25);
+    setProgress(30);
 
-    if (uploadMethod === 'zip') {
-      try {
+    try {
+      let uploadFileList = [...files];
+
+      // Agar ZIP file hai toh extract karke files upload karein
+      if (uploadMethod === 'zip') {
         const zipFile = files[0];
         const jszip = new JSZip();
         const zipContent = await jszip.loadAsync(zipFile);
-        const extractedItems = [];
-
-        setProgress(60);
+        uploadFileList = [];
 
         for (const relativePath of Object.keys(zipContent.files)) {
-          const zipEntry = zipContent.files[relativePath];
-          if (zipEntry.dir) continue;
-
-          const fileName = zipEntry.name.split('/').pop();
+          const entry = zipContent.files[relativePath];
+          if (entry.dir) continue;
+          const fileName = entry.name.split('/').pop();
           if (!fileName || fileName.startsWith('.')) continue;
 
           const isImg = fileName.match(/\.(jpg|jpeg|png|webp|gif)$/i);
           const isVid = fileName.match(/\.(mp4|mov|webm)$/i);
-
           if (isImg || isVid) {
-            const blob = await zipEntry.async('blob');
-            const fileUrl = URL.createObjectURL(blob);
-            const newItem = {
-              _id: Date.now().toString() + Math.random().toString(36).substr(2, 7),
-              name: fileName,
-              url: fileUrl,
-              blob: blob,
-              type: isImg ? 'image/jpeg' : 'video/mp4',
-              folder: finalFolderName,
-              username: user
-            };
-            extractedItems.push(newItem);
+            const blob = await entry.async('blob');
+            const extractedFile = new File([blob], fileName, { type: isImg ? 'image/jpeg' : 'video/mp4' });
+            uploadFileList.push(extractedFile);
           }
         }
 
-        setProgress(100);
-
-        if (extractedItems.length === 0) {
-          alert('Is ZIP file me koi photo ya video nahi mili.');
-        } else {
-          setItems(prev => [...extractedItems, ...prev]);
-          if (extractedItems[0]) setActiveMedia(extractedItems[0]);
-          alert(`${extractedItems.length} media files ZIP se extract ho gayi!`);
+        if (uploadFileList.length === 0) {
+          alert('Is ZIP file me koi valid photo ya video nahi mili.');
+          setUploading(false);
+          return;
         }
-      } catch (err) {
-        alert('ZIP extract error: ' + err.message);
       }
-      setUploading(false);
-      setProgress(0);
+
+      // Backend API par FormData bhejna
+      const formData = new FormData();
+      uploadFileList.forEach(file => {
+        formData.append('files', file);
+      });
+      formData.append('folder', finalFolderName);
+      formData.append('username', user);
+
+      setProgress(60);
+
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const uploadedData = await res.json();
+
+      setProgress(100);
+
+      if (Array.isArray(uploadedData)) {
+        setItems(prev => [...uploadedData, ...prev]);
+        if (uploadedData[0]) setActiveMedia(uploadedData[0]);
+        alert(`${uploadedData.length} files successfully cloud vault me upload ho gayi!`);
+      } else {
+        // Single fallback item
+        setItems(prev => [uploadedData, ...prev]);
+      }
+
       setFiles([]);
       setNewFolderName('');
-      return;
-    }
-
-    const newLocalItems = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const itemObj = {
-        _id: (Date.now() + i).toString(),
-        name: file.name,
-        url: URL.createObjectURL(file),
-        blob: file,
-        type: file.type,
-        folder: finalFolderName,
-        username: user
-      };
-      newLocalItems.push(itemObj);
-    }
-
-    setProgress(100);
-    setTimeout(() => {
-      setItems(prev => [...newLocalItems, ...prev]);
-      if (newLocalItems[0] && !newLocalItems[0].type.includes('zip')) {
-        setActiveMedia(newLocalItems[0]);
-      }
+    } catch (err) {
+      alert('Upload error: ' + err.message);
+    } finally {
       setUploading(false);
       setProgress(0);
-      setFiles([]);
-      setNewFolderName('');
-    }, 400);
+    }
   };
 
+  // Bulk ZIP Download
   const handleDownloadZip = async (folderTarget = 'ALL') => {
     const listToZip = folderTarget === 'ALL'
       ? items.filter(i => i.type !== 'link/drive')
@@ -201,19 +215,15 @@ export default function App() {
 
     try {
       for (const item of listToZip) {
-        let blobData = item.blob;
-        if (!blobData && item.url) {
-          const fetchUrl = item.url.startsWith('blob:') ? item.url : `${SERVER_URL}${item.url}`;
-          const res = await fetch(fetchUrl);
-          blobData = await res.blob();
-        }
-        if (blobData) {
-          const folderName = item.folder || 'General';
-          if (folderTarget === 'ALL') {
-            zip.folder(folderName).file(item.name, blobData);
-          } else {
-            zip.file(item.name, blobData);
-          }
+        const fileUrl = item.url.startsWith('http') ? item.url : `${SERVER_URL}${item.url}`;
+        const res = await fetch(fileUrl);
+        const blobData = await res.blob();
+        
+        const folderName = item.folder || 'General';
+        if (folderTarget === 'ALL') {
+          zip.folder(folderName).file(item.name, blobData);
+        } else {
+          zip.file(item.name, blobData);
         }
       }
 
@@ -226,16 +236,22 @@ export default function App() {
     setZipping(false);
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm('Delete karna chahte hain?')) return;
-    setItems(prev => prev.filter(i => i._id !== id));
-    if (activeMedia && activeMedia._id === id) setActiveMedia(null);
+  // Database se Item Delete karna
+  const handleDelete = async (id) => {
+    if (!window.confirm('Kya aap ise vault se delete karna chahte hain?')) return;
+    try {
+      await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+      setItems(prev => prev.filter(i => i._id !== id));
+      if (activeMedia && activeMedia._id === id) setActiveMedia(null);
+    } catch (err) {
+      alert('Delete fail: ' + err.message);
+    }
   };
 
   const displayedItems = (selectedFolderTab === 'ALL' 
     ? items 
     : items.filter(i => (i.folder || 'General') === selectedFolderTab)
-  ).filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
+  ).filter(i => (i.name || '').toLowerCase().includes(search.toLowerCase()));
 
   const firstPhoto = items.find(i => i.type?.includes('image') || i.url?.match(/\.(jpg|jpeg|png|webp)$/i));
   const firstVideo = items.find(i => i.type?.includes('video') || i.url?.match(/\.(mp4|mov|webm)$/i));
@@ -245,6 +261,12 @@ export default function App() {
   const isBgVideo = bgMedia && (bgMedia.type?.includes('video') || bgMedia.url?.match(/\.(mp4|mov|webm)$/i));
 
   const isDark = theme === 'dark';
+
+  const getMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+    return `${SERVER_URL}${url}`;
+  };
 
   if (!user) {
     return (
@@ -343,7 +365,7 @@ export default function App() {
       overflowX: 'hidden'
     }}>
       
-      {/* Background Media & Dynamic Overlay */}
+      {/* Background Media */}
       {bgMedia ? (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1, overflow: 'hidden' }}>
           {isBgPhoto && (
@@ -351,7 +373,7 @@ export default function App() {
               style={{ 
                 width: '100%', 
                 height: '100%', 
-                backgroundImage: `url(${bgMedia.url.startsWith('blob:') ? bgMedia.url : SERVER_URL + bgMedia.url})`, 
+                backgroundImage: `url(${getMediaUrl(bgMedia.url)})`, 
                 backgroundSize: 'cover', 
                 backgroundPosition: 'center',
                 filter: isDark ? 'brightness(0.45)' : 'brightness(0.92)'
@@ -362,7 +384,7 @@ export default function App() {
           {isBgVideo && (
             <video 
               key={bgMedia.url} 
-              src={bgMedia.url.startsWith('blob:') ? bgMedia.url : `${SERVER_URL}${bgMedia.url}`} 
+              src={getMediaUrl(bgMedia.url)} 
               autoPlay 
               loop 
               muted 
@@ -376,7 +398,6 @@ export default function App() {
             />
           )}
 
-          {/* Semi-transparent tint to keep text readable without blocking media */}
           <div style={{
             position: 'absolute',
             top: 0,
@@ -389,7 +410,6 @@ export default function App() {
           }} />
         </div>
       ) : (
-        /* Jab koi media na ho tab clean solid background */
         <div style={{
           position: 'fixed',
           top: 0,
@@ -401,7 +421,7 @@ export default function App() {
         }} />
       )}
 
-      {/* Foreground Container */}
+      {/* Foreground Content */}
       <div style={{ position: 'relative', zIndex: 2, maxWidth: '1200px', margin: '0 auto', padding: '20px 25px 80px' }}>
         
         <nav style={{
@@ -460,7 +480,7 @@ export default function App() {
             Raw 4K videos aur high-res photography upload karein, organize karein aur background cinematic mode set karein.
           </p>
 
-          {/* Upload Card */}
+          {/* Upload Box */}
           <div style={{
             background: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.85)',
             backdropFilter: 'blur(14px)',
@@ -604,7 +624,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Search & Bulk ZIP Download Actions */}
+        {/* Search & Bulk ZIP Download */}
         <div style={{ display: 'flex', gap: '15px', margin: '30px 0 20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <input 
             type="text" 
@@ -643,7 +663,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Folder Tabs + Folder-wise ZIP Download */}
+        {/* Folder Tabs */}
         <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button 
@@ -739,9 +759,9 @@ export default function App() {
                         <span style={{ fontSize: '0.8rem', color: '#38bdf8' }}>Drive Link</span>
                       </div>
                     ) : itemIsVideo ? (
-                      <video src={item.url.startsWith('blob:') ? item.url : `${SERVER_URL}${item.url}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                      <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
                     ) : (
-                      <img src={item.url.startsWith('blob:') ? item.url : `${SERVER_URL}${item.url}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getMediaUrl(item.url)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
 
                     {!itemIsDrive && (
@@ -764,7 +784,7 @@ export default function App() {
                           Open Drive ↗
                         </a>
                       ) : (
-                        <a href={item.url} download={item.name} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}>
+                        <a href={getMediaUrl(item.url)} target="_blank" rel="noopener noreferrer" download={item.name} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}>
                           Download
                         </a>
                       )}
