@@ -599,12 +599,21 @@ export default function App() {
         })}
       </div>
 
-      {/* FULLSCREEN THEATRE MODAL */}
+      {/* FULLSCREEN THEATRE MODAL (WITH BACK BUTTON) */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{activeMedia.name}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <button
+                  className="btn-back-vault"
+                  onClick={() => setActiveMedia(null)}
+                  style={{ padding: '0.45rem 1rem', fontSize: '0.8rem' }}
+                >
+                  ← Back to Vault
+                </button>
+                <h3 className="modal-title">{activeMedia.name}</h3>
+              </div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 {activeMedia.type === 'video' && (
                   <button
