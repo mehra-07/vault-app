@@ -1,66 +1,87 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
-// High payload limit for handling base64 / uploads
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Ensure uploads folder always exists on Render
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
-// MongoDB Atlas Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mehra25042004_db_user:Mehra007@cluster0.63gozys.mongodb.net/apertureVaultDB?retryWrites=true&w=majority&appName=Cluster0';
+app.use(cors());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB Connected Successfully'))
-  .catch((err) => console.error('MongoDB Connection Error:', err));
+// Serve static uploaded files
+app.use('/uploads', express.static(uploadDir));
 
-// Schemas & Models
-const userSchema = new mongoose.Schema({
+// MongoDB Connection
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+if (MONGO_URI) {
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('MongoDB Connected Successfully'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+} else {
+  console.log('MongoDB URI missing in env!');
+}
+
+// Schemas
+const ItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  url: { type: String, required: true },
+  type: { type: String, default: 'image' },
+  folder: { type: String, default: 'General' },
+  username: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  password: { type: String, required: true }
 });
 
-const vaultItemSchema = new mongoose.Schema({
-  username: { type: String, required: true, index: true },
-  title: { type: String },
-  name: { type: String },
-  data: { type: mongoose.Schema.Types.Mixed },
-  fileUrl: { type: String },
-  type: { type: String },
-  createdAt: { type: Date, default: Date.now }
+const Item = mongoose.model('Item', ItemSchema);
+const User = mongoose.model('User', UserSchema);
+
+// Multer Storage Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
 });
 
-const User = mongoose.model('User', userSchema);
-const VaultItem = mongoose.model('VaultItem', vaultItemSchema);
-
-// Base Route
-app.get('/', (req, res) => {
-  res.send('Vault App Backend Running');
+// Allow up to 150MB file uploads
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 150 * 1024 * 1024 }
 });
 
-// Auth Routes (/api/auth/register, /api/auth/login)
+// Auth Routes
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Username aur password zaroori hain' });
-    }
-    const existing = await User.findOne({ username });
-    if (existing) {
-      return res.status(400).json({ message: 'User pehle se registered hai' });
-    }
+    if (!username || !password) return res.status(400).json({ message: 'Username and password required' });
+    const exists = await User.findOne({ username });
+    if (exists) return res.status(400).json({ message: 'User already exists' });
     const newUser = new User({ username, password });
     await newUser.save();
-    return res.status(201).json({ message: 'User registered successfully', user: username });
+    res.json({ message: 'User created successfully', user: username });
   } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -68,57 +89,87 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username, password });
-    if (!user) {
-      return res.status(401).json({ message: 'Galat username ya password' });
-    }
-    return res.status(200).json({ message: 'Login successful', user: username });
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    res.json({ message: 'Login successful', user: username });
   } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Vault Data Routes
+// Media Routes
 app.get('/api/vault', async (req, res) => {
   try {
     const { username } = req.query;
-    if (!username) return res.status(400).json({ message: 'Username query required' });
-    const items = await VaultItem.find({ username }).sort({ createdAt: -1 });
-    return res.status(200).json(items);
+    if (!username) return res.status(400).json({ message: 'Username required' });
+    const items = await Item.find({ username }).sort({ createdAt: -1 });
+    res.json(items);
   } catch (err) {
-    return res.status(500).json({ message: 'Error fetching items', error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.post('/api/vault', async (req, res) => {
   try {
-    const itemData = req.body;
-    const newItem = new VaultItem(itemData);
+    const { name, url, type, folder, username } = req.body;
+    const newItem = new Item({ name, url, type, folder: folder || 'General', username });
     await newItem.save();
-    return res.status(201).json(newItem);
+    res.json(newItem);
   } catch (err) {
-    return res.status(500).json({ message: 'Error saving item', error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/vault/upload', async (req, res) => {
+// Multi-file & Single-file upload endpoint
+app.post('/api/vault/upload', upload.array('files'), async (req, res) => {
   try {
-    const itemData = req.body;
-    const newItem = new VaultItem(itemData);
-    await newItem.save();
-    return res.status(201).json(newItem);
+    const { folder, username } = req.body;
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const savedItems = [];
+    for (const file of req.files) {
+      const isVideo = file.mimetype.startsWith('video') || file.originalname.match(/\.(mp4|mov|webm)$/i);
+      const isImg = file.mimetype.startsWith('image') || file.originalname.match(/\.(jpg|jpeg|png|webp|gif)$/i);
+      const type = isVideo ? 'video' : (isImg ? 'image' : 'file');
+
+      const newItem = new Item({
+        name: file.originalname,
+        url: `/uploads/${file.filename}`,
+        type: type,
+        folder: folder || 'General',
+        username: username || 'default'
+      });
+      await newItem.save();
+      savedItems.push(newItem);
+    }
+
+    res.json(savedItems.length === 1 ? savedItems[0] : savedItems);
   } catch (err) {
-    return res.status(500).json({ message: 'Upload failed', error: err.message });
+    console.error('UPLOAD ERROR:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.delete('/api/vault/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await VaultItem.findByIdAndDelete(id);
-    return res.status(200).json({ message: 'Item deleted successfully' });
+    const item = await Item.findByIdAndDelete(req.params.id);
+    if (item && item.url && item.url.startsWith('/uploads/')) {
+      const filePath = path.join(__dirname, item.url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+    res.json({ message: 'Deleted successfully' });
   } catch (err) {
-    return res.status(500).json({ message: 'Delete failed', error: err.message });
+    res.status(500).json({ error: err.message });
   }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('GLOBAL ERROR:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
 app.listen(PORT, () => {
