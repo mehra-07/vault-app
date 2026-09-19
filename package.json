@@ -10,8 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.1",
+    "express": "^5.2.1",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.2",
+    "mongoose": "^9.10.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
