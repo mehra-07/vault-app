@@ -23,7 +23,7 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Regular Media Download States
+  // Media Download Choice States
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
 
@@ -148,7 +148,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // DIRECT VAULT MEDIA DOWNLOAD (FORCE DOWNLOAD NO EXTRA TABS)
+  // DIRECT VAULT MEDIA DOWNLOAD (NO NEW TABS, DIRECT TO DEVICE)
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
