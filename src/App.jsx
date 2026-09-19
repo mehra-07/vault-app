@@ -73,7 +73,7 @@ export default function App() {
         body: JSON.stringify({ username: authUsername.trim(), password: authPassword }),
       });
       const data = await res.json();
-      if (!data.success) {
+      if (!res.ok || (!data.user && !data.success)) {
         setAuthError(data.message || 'Auth Error');
         return;
       }
