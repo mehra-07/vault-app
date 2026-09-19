@@ -20,6 +20,10 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
+  // Download Dialog State
+  const [downloadModalItem, setDownloadModalItem] = useState(null);
+  const [downloadingFormat, setDownloadingFormat] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeMedia, setActiveMedia] = useState(null);
@@ -96,26 +100,119 @@ export default function App() {
     setItems([]);
   };
 
-  // Direct Browser Download Helper
-  const handleDownload = async (url, filename) => {
+  const getMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  // Force Save Blob Helper (No new tab opened!)
+  const triggerSaveBlob = (blob, filename) => {
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+  };
+
+  // Convert AudioBuffer to WAV format
+  const audioBufferToWav = (buffer) => {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const out = new DataView(new ArrayBuffer(length));
+    const channels = [];
+    let sampleRate = buffer.sampleRate;
+    let offset = 0;
+    let pos = 0;
+
+    function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+    function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8);
+    setUint32(0x45564157); // "WAVE"
+    setUint32(0x20746d66); // "fmt "
+    setUint32(16);
+    setUint16(1);
+    setUint16(numOfChan);
+    setUint32(sampleRate);
+    setUint32(sampleRate * 2 * numOfChan);
+    setUint16(numOfChan * 2);
+    setUint16(16);
+    setUint32(0x61746164); // "data"
+    setUint32(length - pos - 4);
+
+    for (let i = 0; i < buffer.numberOfChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    while (pos < length) {
+      for (let i = 0; i < numOfChan; i++) {
+        let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+        out.setInt16(pos, sample, true);
+        pos += 2;
+      }
+      offset++;
+    }
+    return new Blob([out], { type: 'audio/wav' });
+  };
+
+  // Direct Force Download Video / Audio
+  const downloadAs = async (format) => {
+    if (!downloadModalItem) return;
+    setDownloadingFormat(true);
+
     try {
-      const fileUrl = getMediaUrl(url);
-      const response = await fetch(fileUrl);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'media_asset';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
+      const targetUrl = getMediaUrl(downloadModalItem.url);
+      const res = await fetch(targetUrl);
+      const originalBlob = await res.blob();
+      const baseName = downloadModalItem.name.replace(/\.[^/.]+$/, '');
+
+      if (format === 'video' || downloadModalItem.type !== 'video') {
+        // Direct Video / Image Download
+        const ext = downloadModalItem.name.split('.').pop() || 'mp4';
+        triggerSaveBlob(originalBlob, `${baseName}.${ext}`);
+      } else if (format === 'audio') {
+        // Extract Audio Stream
+        const arrayBuffer = await originalBlob.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        const wavBlob = audioBufferToWav(decodedBuffer);
+        triggerSaveBlob(wavBlob, `${baseName}_audio.wav`);
+      }
     } catch (err) {
-      window.open(getMediaUrl(url), '_blank');
+      console.error('Download error:', err);
+      alert('Direct download failed. Please try again.');
+    } finally {
+      setDownloadingFormat(false);
+      setDownloadModalItem(null);
     }
   };
 
-  // Picture-in-Picture Floating Mode
+  const handleDownloadClick = (item) => {
+    if (item.type === 'video') {
+      setDownloadModalItem(item);
+    } else {
+      // If image/document, download directly
+      downloadModalItemDirect(item);
+    }
+  };
+
+  const downloadModalItemDirect = async (item) => {
+    try {
+      const res = await fetch(getMediaUrl(item.url));
+      const blob = await res.blob();
+      triggerSaveBlob(blob, item.name);
+    } catch (e) {
+      alert('Download error');
+    }
+  };
+
+  // Picture in Picture
   const togglePictureInPicture = async () => {
     try {
       if (document.pictureInPictureElement) {
@@ -128,7 +225,7 @@ export default function App() {
     }
   };
 
-  // Upload Handler
+  // Upload Logic
   const handleUpload = async (e) => {
     e.preventDefault();
 
@@ -234,12 +331,6 @@ export default function App() {
     } catch (err) {
       alert('Delete failed');
     }
-  };
-
-  const getMediaUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
   const videoCount = items.filter((i) => i.type === 'video').length;
@@ -516,14 +607,15 @@ export default function App() {
                     </button>
                     <button
                       className="btn-action-download"
-                      onClick={() => handleDownload(item.url, item.name)}
-                      title="Download to Device"
+                      onClick={() => handleDownloadClick(item)}
+                      title="Download"
                     >
-                      ⬇️
+                      ⬇️ Download
                     </button>
                     <button
                       className="btn-action-delete"
                       onClick={() => handleDelete(item._id)}
+                      title="Delete"
                     >
                       🗑
                     </button>
@@ -535,7 +627,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Fullscreen Theatre Modal with PiP Background Player */}
+      {/* Fullscreen Theatre Modal with PiP */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
@@ -553,7 +645,7 @@ export default function App() {
                 )}
                 <button
                   className="btn-action-download-modal"
-                  onClick={() => handleDownload(activeMedia.url, activeMedia.name)}
+                  onClick={() => handleDownloadClick(activeMedia)}
                   title="Download File"
                 >
                   ⬇️ Download
@@ -586,6 +678,60 @@ export default function App() {
                 />
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Choice Modal (Video vs Audio) */}
+      {downloadModalItem && (
+        <div className="modal-overlay" onClick={() => !downloadingFormat && setDownloadModalItem(null)}>
+          <div className="download-choice-card" onClick={(e) => e.stopPropagation()}>
+            <div className="download-choice-header">
+              <h3>Download Media</h3>
+              <p>{downloadModalItem.name}</p>
+            </div>
+
+            {downloadingFormat ? (
+              <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
+                <div className="download-spinner"></div>
+                <p style={{ marginTop: '1rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                  Processing & saving to device...
+                </p>
+              </div>
+            ) : (
+              <div className="download-options-grid">
+                <button
+                  className="download-option-btn video-opt"
+                  onClick={() => downloadAs('video')}
+                >
+                  <span className="opt-icon">🎬</span>
+                  <div className="opt-text">
+                    <strong>Full Video (.mp4)</strong>
+                    <span>Best quality video + audio</span>
+                  </div>
+                </button>
+
+                <button
+                  className="download-option-btn audio-opt"
+                  onClick={() => downloadAs('audio')}
+                >
+                  <span className="opt-icon">🎵</span>
+                  <div className="opt-text">
+                    <strong>Audio Only (.wav / mp3)</strong>
+                    <span>Extract voice / music only</span>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {!downloadingFormat && (
+              <button
+                className="btn-cancel-download"
+                onClick={() => setDownloadModalItem(null)}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       )}
