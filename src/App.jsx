@@ -29,9 +29,6 @@ export default function App() {
 
   // BONUS SOCIAL DOWNLOADER MODAL STATES
   const [showBonusModal, setShowBonusModal] = useState(false);
-  const [bonusUrl, setBonusUrl] = useState('');
-  const [bonusFormat, setBonusFormat] = useState('video');
-  const [bonusLoading, setBonusLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -205,67 +202,6 @@ export default function App() {
     } finally {
       setDownloadingFormat(false);
       setDownloadModalItem(null);
-    }
-  };
-
-  // DIRECT SOCIAL DOWNLOAD TRIGGER (FETCHES STREAM DIRECTLY INTO DEVICE)
-  const handleBonusDownload = async (e) => {
-    e.preventDefault();
-    const link = bonusUrl.trim();
-    if (!link) {
-      alert('Please paste a link first!');
-      return;
-    }
-
-    setBonusLoading(true);
-
-    try {
-      // Direct stream conversion API (cobalt instance that returns direct download URL)
-      const res = await fetch('https://co.wuk.sh/api/json', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: link,
-          isAudioOnly: bonusFormat === 'audio',
-          aFormat: 'mp3',
-          vQuality: '1080'
-        })
-      });
-
-      const data = await res.json();
-
-      if (data && (data.url || data.audio)) {
-        const directFileUrl = data.url || data.audio;
-        
-        // Trigger browser save
-        const a = document.createElement('a');
-        a.href = directFileUrl;
-        a.download = `MehraSpace_${Date.now()}.${bonusFormat === 'audio' ? 'mp3' : 'mp4'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        setToastText(`⚡ ${bonusFormat.toUpperCase()} Download Started!`);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3500);
-        setShowBonusModal(false);
-        setBonusUrl('');
-      } else {
-        // Fallback: Direct service without ad-redirects
-        const fallbackUrl = `https://loader.to/api/button/?url=${encodeURIComponent(link)}&f=${bonusFormat === 'audio' ? 'mp3' : '1080'}&color=00f2fe`;
-        window.open(fallbackUrl, '_blank');
-        setShowBonusModal(false);
-      }
-    } catch (err) {
-      // Direct fallback
-      const fallbackUrl = `https://loader.to/api/button/?url=${encodeURIComponent(link)}&f=${bonusFormat === 'audio' ? 'mp3' : '1080'}&color=00f2fe`;
-      window.open(fallbackUrl, '_blank');
-      setShowBonusModal(false);
-    } finally {
-      setBonusLoading(false);
     }
   };
 
@@ -768,17 +704,17 @@ export default function App() {
         </div>
       )}
 
-      {/* BONUS: 1-CLICK UNIVERSAL SOCIAL MEDIA DOWNLOADER */}
+      {/* BONUS: RELIABLE IN-MODAL EXTRACTOR (NO BLANK TABS) */}
       {showBonusModal && (
-        <div className="modal-overlay" onClick={() => !bonusLoading && setShowBonusModal(false)}>
-          <div className="bonus-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowBonusModal(false)}>
+          <div className="bonus-modal-card" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
             <button className="btn-close-bonus-modal" onClick={() => setShowBonusModal(false)}>
               ✕
             </button>
             <div className="bonus-header">
               <div style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>🎁</div>
               <h3>Universal Media Extractor</h3>
-              <p>Paste any YouTube, Instagram, Facebook, TikTok or X link</p>
+              <p>Paste any YouTube, Instagram, Facebook or TikTok link below to download instantly</p>
             </div>
 
             <div className="social-icons-row">
@@ -789,45 +725,14 @@ export default function App() {
               <span className="social-pill">🐦 Twitter / X</span>
             </div>
 
-            <form onSubmit={handleBonusDownload}>
-              <div className="bonus-input-group">
-                <input
-                  type="url"
-                  className="bonus-input-field"
-                  placeholder="Paste link here (e.g. YouTube Shorts, Insta Reel)..."
-                  value={bonusUrl}
-                  onChange={(e) => setBonusUrl(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="bonus-format-selector">
-                <div
-                  className={`bonus-format-card ${bonusFormat === 'video' ? 'active' : ''}`}
-                  onClick={() => setBonusFormat('video')}
-                >
-                  <span className="icon">🎬</span>
-                  <strong>Video (MP4)</strong>
-                  <span>Direct Download to Device</span>
-                </div>
-                <div
-                  className={`bonus-format-card ${bonusFormat === 'audio' ? 'active' : ''}`}
-                  onClick={() => setBonusFormat('audio')}
-                >
-                  <span className="icon">🎵</span>
-                  <strong>Audio (MP3)</strong>
-                  <span>High Bitrate Audio</span>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="btn-bonus-download-now"
-                disabled={bonusLoading}
-              >
-                {bonusLoading ? '⚡ Fetching File...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
-              </button>
-            </form>
+            {/* EMBEDDED DIRECT CONVERTER - 100% IN-APP, NEVER OPENS ABOUT:BLANK */}
+            <div style={{ width: '100%', height: '360px', borderRadius: '18px', overflow: 'hidden', border: '1px solid var(--border-glass)', background: '#0b101d' }}>
+              <iframe
+                src="https://convert2mp3.club/api/widget"
+                title="Universal Downloader"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
           </div>
         </div>
       )}
