@@ -8,19 +8,22 @@ export default function App() {
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ username: '', password: '' });
 
+  // Light / Dark Theme
+  const [theme, setTheme] = useState(localStorage.getItem('vault_theme') || 'dark');
+
   const [items, setItems] = useState([]);
   const [folder, setFolder] = useState('Videos');
-  const [uploadMode, setUploadMode] = useState('file'); // 'file', 'zip', 'drive'
+  const [uploadMode, setUploadMode] = useState('file');
   const [selectedFile, setSelectedFile] = useState(null);
   const [driveUrl, setDriveUrl] = useState('');
   
-  // Upload Animation States
+  // Progress & Toasts
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Download Dialog State
+  // Download States
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
 
@@ -31,12 +34,21 @@ export default function App() {
   const videoRef = useRef(null);
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('vault_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  useEffect(() => {
     if (user) {
       fetchItems();
     }
   }, [user]);
 
-  // Background Audio & Lock Screen Player Controls
+  // Video session for background playing
   useEffect(() => {
     if (activeMedia && activeMedia.type === 'video' && 'mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -44,19 +56,8 @@ export default function App() {
         artist: 'MEHRA SPACE',
         album: activeMedia.folder || 'Vault Media'
       });
-
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (videoRef.current) videoRef.current.play();
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        if (videoRef.current) videoRef.current.pause();
-      });
-      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-        if (videoRef.current) videoRef.current.currentTime = Math.max(videoRef.current.currentTime - (details.seekOffset || 10), 0);
-      });
-      navigator.mediaSession.setActionHandler('seekforward', (details) => {
-        if (videoRef.current) videoRef.current.currentTime = Math.min(videoRef.current.currentTime + (details.seekOffset || 10), videoRef.current.duration);
-      });
+      navigator.mediaSession.setActionHandler('play', () => videoRef.current && videoRef.current.play());
+      navigator.mediaSession.setActionHandler('pause', () => videoRef.current && videoRef.current.pause());
     }
   }, [activeMedia]);
 
@@ -106,7 +107,7 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Direct Force Download Blob Trigger
+  // Direct Browser Download
   const triggerSaveBlob = (blob, filename) => {
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -118,7 +119,6 @@ export default function App() {
     setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  // Convert Decoded Audio to clean WAV blob
   const audioBufferToWav = (buffer) => {
     const numOfChan = buffer.numberOfChannels;
     const length = buffer.length * numOfChan * 2 + 44;
@@ -130,24 +130,22 @@ export default function App() {
     function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
     function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
 
-    setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8);
-    setUint32(0x45564157); // "WAVE"
-    setUint32(0x20746d66); // "fmt "
-    setUint32(16);
-    setUint16(1);
-    setUint16(numOfChan);
-    setUint32(sampleRate);
-    setUint32(sampleRate * 2 * numOfChan);
-    setUint16(numOfChan * 2);
-    setUint16(16);
-    setUint32(0x61746164); // "data"
-    setUint32(length - pos - 4);
+    setUint32(0x46464952); pos += 4;
+    setUint32(length - 8); pos += 4;
+    setUint32(0x45564157); pos += 4;
+    setUint32(0x20746d66); pos += 4;
+    setUint32(16); pos += 4;
+    setUint16(1); pos += 2;
+    setUint16(numOfChan); pos += 2;
+    setUint32(sampleRate); pos += 4;
+    setUint32(sampleRate * 2 * numOfChan); pos += 4;
+    setUint16(numOfChan * 2); pos += 2;
+    setUint16(16); pos += 2;
+    setUint32(0x61746164); pos += 4;
+    setUint32(length - pos - 4); pos += 4;
 
     const channels = [];
-    for (let i = 0; i < buffer.numberOfChannels; i++) {
-      channels.push(buffer.getChannelData(i));
-    }
+    for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
 
     while (pos < length) {
       for (let i = 0; i < numOfChan; i++) {
@@ -161,7 +159,6 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // Direct Download Video / Audio Function
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -183,33 +180,13 @@ export default function App() {
         triggerSaveBlob(wavBlob, `${baseName}_audio.wav`);
       }
     } catch (err) {
-      console.error('Download error:', err);
-      alert('Direct download failed. Please try again.');
+      alert('Direct download started in background or failed.');
     } finally {
       setDownloadingFormat(false);
       setDownloadModalItem(null);
     }
   };
 
-  const handleDownloadClick = (item) => {
-    if (item.type === 'video') {
-      setDownloadModalItem(item);
-    } else {
-      downloadModalItemDirect(item);
-    }
-  };
-
-  const downloadModalItemDirect = async (item) => {
-    try {
-      const res = await fetch(getMediaUrl(item.url));
-      const blob = await res.blob();
-      triggerSaveBlob(blob, item.name);
-    } catch (e) {
-      alert('Download error');
-    }
-  };
-
-  // Picture-in-Picture Floating Mode
   const togglePictureInPicture = async () => {
     try {
       if (document.pictureInPictureElement) {
@@ -218,11 +195,10 @@ export default function App() {
         await videoRef.current.requestPictureInPicture();
       }
     } catch (error) {
-      console.error('Picture-in-Picture error:', error);
+      console.error(error);
     }
   };
 
-  // Upload Logic
   const handleUpload = async (e) => {
     e.preventDefault();
 
@@ -231,20 +207,20 @@ export default function App() {
       return;
     }
     if (uploadMode === 'zip' && !selectedFile) {
-      alert('Please select a .zip archive first');
+      alert('Please select a .zip archive');
       return;
     }
     if (uploadMode === 'drive' && !driveUrl) {
-      alert('Please paste a Google Drive URL');
+      alert('Please paste a Google Drive link');
       return;
     }
 
     setUploading(true);
-    setProgress(15);
+    setProgress(20);
 
-    const progressTimer = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + Math.floor(Math.random() * 10) + 5 : 90));
-    }, 200);
+    const timer = setInterval(() => {
+      setProgress((prev) => (prev < 90 ? prev + 10 : 90));
+    }, 250);
 
     try {
       let res;
@@ -253,37 +229,24 @@ export default function App() {
         formData.append('files', selectedFile);
         formData.append('folder', folder || 'General');
         formData.append('username', user);
-
-        res = await fetch(`${API_BASE}/api/vault/upload`, {
-          method: 'POST',
-          body: formData,
-        });
+        res = await fetch(`${API_BASE}/api/vault/upload`, { method: 'POST', body: formData });
       } else if (uploadMode === 'zip') {
         const formData = new FormData();
         formData.append('zipfile', selectedFile);
         formData.append('folder', folder || 'General');
         formData.append('username', user);
-
-        res = await fetch(`${API_BASE}/api/vault/upload-zip`, {
-          method: 'POST',
-          body: formData,
-        });
+        res = await fetch(`${API_BASE}/api/vault/upload-zip`, { method: 'POST', body: formData });
       } else if (uploadMode === 'drive') {
         res = await fetch(`${API_BASE}/api/vault/drive-download`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            driveUrl: driveUrl.trim(),
-            folder: folder || 'General',
-            username: user,
-          }),
+          body: JSON.stringify({ driveUrl: driveUrl.trim(), folder: folder || 'General', username: user }),
         });
       }
 
-      clearInterval(progressTimer);
+      clearInterval(timer);
       setProgress(100);
 
-      const data = await res.json();
       if (res.ok) {
         setTimeout(() => {
           setUploading(false);
@@ -292,29 +255,19 @@ export default function App() {
           setDriveUrl('');
           const inp = document.getElementById('media-upload-input');
           if (inp) inp.value = '';
-
-          setToastText(
-            uploadMode === 'file'
-              ? 'Asset Uploaded Successfully!'
-              : uploadMode === 'zip'
-              ? 'ZIP Extracted & Assets Stored!'
-              : 'Google Drive Media Synced!'
-          );
+          setToastText('File Uploaded Successfully to Cloud!');
           setShowToast(true);
-          setTimeout(() => setShowToast(false), 3500);
-
+          setTimeout(() => setShowToast(false), 3000);
           fetchItems();
         }, 500);
       } else {
         setUploading(false);
-        setProgress(0);
-        alert(data.error || 'Upload failed');
+        alert('Upload failed');
       }
     } catch (err) {
-      clearInterval(progressTimer);
+      clearInterval(timer);
       setUploading(false);
-      setProgress(0);
-      alert('Upload failed: Server connection error');
+      alert('Server upload error');
     }
   };
 
@@ -322,9 +275,7 @@ export default function App() {
     if (!window.confirm('Delete this permanently?')) return;
     try {
       const res = await fetch(`${API_BASE}/api/vault/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setItems(items.filter((item) => item._id !== id));
-      }
+      if (res.ok) setItems(items.filter((i) => i._id !== id));
     } catch (err) {
       alert('Delete failed');
     }
@@ -334,9 +285,8 @@ export default function App() {
   const imageCount = items.filter((i) => i.type === 'image').length;
 
   const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.folder && item.folder.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (item.folder && item.folder.toLowerCase().includes(searchQuery.toLowerCase()));
     if (activeFilter === 'video') return matchesSearch && item.type === 'video';
     if (activeFilter === 'image') return matchesSearch && item.type === 'image';
     return matchesSearch;
@@ -347,9 +297,9 @@ export default function App() {
       <div className="auth-wrapper">
         <div className="auth-card">
           <div className="logo-badge" style={{ marginBottom: '2rem', justifyContent: 'center' }}>
-            <span className="logo-icon">🪐</span>
+            <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
             <div className="logo-text">
-              <h1 style={{ letterSpacing: '2px', fontSize: '1.8rem' }}>MEHRA SPACE</h1>
+              <h1 className="logo-title-animated">MEHRA SPACE</h1>
             </div>
           </div>
           <form className="auth-form" onSubmit={handleAuth}>
@@ -389,13 +339,23 @@ export default function App() {
       {/* Top Header */}
       <header className="vault-header">
         <div className="logo-badge">
-          <span className="logo-icon">🪐</span>
+          <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
           <div className="logo-text">
-            <h1>MEHRA SPACE</h1>
-            <span>Private Storage Vault</span>
+            <h1 className="logo-title-animated">MEHRA SPACE</h1>
+            <span className="logo-subtitle">Private Storage Vault</span>
           </div>
         </div>
-        <div className="user-profile-badge">
+
+        <div className="header-actions">
+          {/* Light / Dark Mode Toggle */}
+          <button
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            title="Toggle Light / Dark Mode"
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
+
           <span className="username-tag">● {user}</span>
           <button onClick={handleLogout} className="btn-logout">
             Logout
@@ -508,7 +468,7 @@ export default function App() {
           <div className="progress-container">
             <div className="progress-header">
               <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD...</span>
-              <span style={{ color: 'white' }}>{progress}%</span>
+              <span>{progress}%</span>
             </div>
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${progress}%` }}></div>
@@ -549,100 +509,89 @@ export default function App() {
       </section>
 
       {/* Gallery Cards */}
-      {filteredItems.length === 0 ? (
-        <div className="empty-state">
-          <p style={{ fontSize: '3.5rem' }}>🪐</p>
-          <h4>No assets in this space</h4>
-          <p>Choose an upload method above to add videos and pictures.</p>
-        </div>
-      ) : (
-        <div className="media-grid">
-          {filteredItems.map((item) => {
-            const mediaUrl = getMediaUrl(item.url);
-            return (
-              <div key={item._id} className="item-card">
-                <div className="preview-container">
-                  <span className="type-badge">{item.type}</span>
-                  {item.type === 'video' ? (
-                    <>
-                      <video
-                        src={mediaUrl}
-                        className="preview-media"
-                        preload="metadata"
-                        crossOrigin="anonymous"
-                        playsInline
-                      />
-                      <button
-                        className="play-overlay-btn"
-                        onClick={() => setActiveMedia(item)}
-                        title="Play"
-                      >
-                        ▶
-                      </button>
-                    </>
-                  ) : (
-                    <img
+      <div className="media-grid">
+        {filteredItems.map((item) => {
+          const mediaUrl = getMediaUrl(item.url);
+          return (
+            <div key={item._id} className="item-card">
+              <div className="preview-container">
+                <span className="type-badge">{item.type}</span>
+                {item.type === 'video' ? (
+                  <>
+                    <video
                       src={mediaUrl}
-                      alt={item.name}
                       className="preview-media"
-                      onClick={() => setActiveMedia(item)}
-                      style={{ cursor: 'pointer' }}
+                      preload="metadata"
+                      crossOrigin="anonymous"
+                      playsInline
                     />
-                  )}
-                </div>
-                <div className="card-content">
-                  <h4 className="item-title" title={item.name}>
-                    {item.name}
-                  </h4>
-                  <span className="item-folder">📁 {item.folder || 'General'}</span>
-                  <div className="card-actions">
                     <button
-                      className="btn-action-view"
+                      className="play-overlay-btn"
                       onClick={() => setActiveMedia(item)}
+                      title="Play"
                     >
-                      {item.type === 'video' ? '▶ Play' : '👁 View'}
+                      ▶
                     </button>
-                    <button
-                      className="btn-action-download"
-                      onClick={() => handleDownloadClick(item)}
-                      title="Download"
-                    >
-                      ⬇️ Download
-                    </button>
-                    <button
-                      className="btn-action-delete"
-                      onClick={() => handleDelete(item._id)}
-                      title="Delete"
-                    >
-                      🗑
-                    </button>
-                  </div>
+                  </>
+                ) : (
+                  <img
+                    src={mediaUrl}
+                    alt={item.name}
+                    className="preview-media"
+                    onClick={() => setActiveMedia(item)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                )}
+              </div>
+              <div className="card-content">
+                <h4 className="item-title" title={item.name}>{item.name}</h4>
+                <span className="item-folder">📁 {item.folder || 'General'}</span>
+                <div className="card-actions">
+                  <button
+                    className="btn-action-view"
+                    onClick={() => setActiveMedia(item)}
+                  >
+                    {item.type === 'video' ? '▶ Play' : '👁 View'}
+                  </button>
+                  <button
+                    className="btn-action-download"
+                    onClick={() => setDownloadModalItem(item)}
+                    title="Download"
+                  >
+                    ⬇️ Download
+                  </button>
+                  <button
+                    className="btn-action-delete"
+                    onClick={() => handleDelete(item._id)}
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Fullscreen Theatre Modal with PiP */}
+      {/* FULLSCREEN THEATRE MODAL */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{activeMedia.name}</h3>
-              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 {activeMedia.type === 'video' && (
                   <button
                     className="btn-pip-modal"
                     onClick={togglePictureInPicture}
-                    title="Floating Background Player"
+                    title="Floating Mini Player"
                   >
-                    📺 Mini/Background
+                    📺 Mini Player
                   </button>
                 )}
                 <button
-                  className="btn-action-download-modal"
-                  onClick={() => handleDownloadClick(activeMedia)}
+                  className="btn-modal-download-styled"
+                  onClick={() => setDownloadModalItem(activeMedia)}
                   title="Download File"
                 >
                   ⬇️ Download
@@ -664,6 +613,7 @@ export default function App() {
                   autoPlay
                   crossOrigin="anonymous"
                   playsInline
+                  preload="auto"
                   className="modal-media-elem"
                 />
               ) : (
@@ -679,7 +629,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Download Choice Modal (Video vs Audio) */}
+      {/* DOWNLOAD MODAL */}
       {downloadModalItem && (
         <div className="modal-overlay" onClick={() => !downloadingFormat && setDownloadModalItem(null)}>
           <div className="download-choice-card" onClick={(e) => e.stopPropagation()}>
@@ -689,33 +639,30 @@ export default function App() {
             </div>
 
             {downloadingFormat ? (
-              <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
-                <div className="download-spinner"></div>
-                <p style={{ marginTop: '1rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                  Processing & saving to device...
-                </p>
-              </div>
+              <p style={{ margin: '2rem 0', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                Saving to device...
+              </p>
             ) : (
               <div className="download-options-grid">
                 <button
-                  className="download-option-btn video-opt"
+                  className="download-option-btn"
                   onClick={() => downloadAs('video')}
                 >
                   <span className="opt-icon">🎬</span>
                   <div className="opt-text">
                     <strong>Full Video (.mp4)</strong>
-                    <span>Best quality video + audio</span>
+                    <span>Complete video with sound</span>
                   </div>
                 </button>
 
                 <button
-                  className="download-option-btn audio-opt"
+                  className="download-option-btn"
                   onClick={() => downloadAs('audio')}
                 >
                   <span className="opt-icon">🎵</span>
                   <div className="opt-text">
                     <strong>Audio Only (.wav)</strong>
-                    <span>Extract voice / music only</span>
+                    <span>Extract audio stream</span>
                   </div>
                 </button>
               </div>
@@ -733,12 +680,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Upload Success Popup Toast */}
+      {/* Toast Popup */}
       {showToast && (
         <div className="toast-popup">
           <span className="toast-icon">🚀</span>
           <div className="toast-body">
-            <h4>Uploaded Successfully!</h4>
+            <h4>Success!</h4>
             <p>{toastText}</p>
           </div>
         </div>
