@@ -27,11 +27,10 @@ export default function App() {
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
 
-  // BONUS SOCIAL DOWNLOADER MODAL STATES (IN-APP DIRECT)
+  // BONUS SOCIAL DOWNLOADER MODAL STATES (CLEAN 1-CLICK)
   const [showBonusModal, setShowBonusModal] = useState(false);
   const [bonusUrl, setBonusUrl] = useState('');
   const [bonusFormat, setBonusFormat] = useState('video');
-  const [bonusReadyUrl, setBonusReadyUrl] = useState('');
   const [bonusLoading, setBonusLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,10 +125,10 @@ export default function App() {
     function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
     function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
 
-    setUint32(0x46464952); pos += 4; // RIFF
+    setUint32(0x46464952); pos += 4;
     setUint32(length - 8); pos += 4;
-    setUint32(0x45564157); pos += 4; // WAVE
-    setUint32(0x20746d66); pos += 4; // fmt
+    setUint32(0x45564157); pos += 4;
+    setUint32(0x20746d66); pos += 4;
     setUint32(16); pos += 4;
     setUint16(1); pos += 2;
     setUint16(numOfChan); pos += 2;
@@ -137,7 +136,7 @@ export default function App() {
     setUint32(sampleRate * 2 * numOfChan); pos += 4;
     setUint16(numOfChan * 2); pos += 2;
     setUint16(16); pos += 2;
-    setUint32(0x61746164); pos += 4; // data
+    setUint32(0x61746164); pos += 4;
     setUint32(length - pos - 4); pos += 4;
 
     const channels = [];
@@ -155,7 +154,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // DIRECT FORCE DOWNLOAD (NO POPUPS / NO TABS)
+  // DIRECT VAULT MEDIA DOWNLOAD
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -209,29 +208,40 @@ export default function App() {
     }
   };
 
-  // IN-APP EMBEDDED SOCIAL DOWNLOAD GENERATOR (NEVER LEAVES SITE)
+  // DIRECT 1-CLICK INSTANT SOCIAL DOWNLOAD (NO EXTRA BUTTONS OR INNER BOXES)
   const handleBonusDownload = (e) => {
     e.preventDefault();
     const link = bonusUrl.trim();
     if (!link) {
-      alert('Please paste a valid video or reel link first!');
+      alert('Please paste a link first!');
       return;
     }
 
     setBonusLoading(true);
-    setBonusReadyUrl('');
 
-    // Load in-app direct widget without opening new tabs
-    const targetFormat = bonusFormat === 'audio' ? 'mp3' : 'mp4';
-    const embedUrl = `https://p.savenow.to/api/button/?url=${encodeURIComponent(link)}&f=${targetFormat}&color=00f2fe`;
+    try {
+      // Invisible instant trigger - directly initiates download
+      const targetFormat = bonusFormat === 'audio' ? 'mp3' : 'mp4';
+      const downloadTriggerUrl = `https://p.savenow.to/api/button/?url=${encodeURIComponent(link)}&f=${targetFormat}&color=00f2fe`;
 
-    setTimeout(() => {
-      setBonusReadyUrl(embedUrl);
+      const hiddenIframe = document.createElement('iframe');
+      hiddenIframe.style.display = 'none';
+      hiddenIframe.src = downloadTriggerUrl;
+      document.body.appendChild(hiddenIframe);
+
+      setTimeout(() => {
+        document.body.removeChild(hiddenIframe);
+        setBonusLoading(false);
+        setShowBonusModal(false);
+        setBonusUrl('');
+        setToastText(`⚡ Download Started Directly to Device!`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3500);
+      }, 1500);
+    } catch (err) {
       setBonusLoading(false);
-      setToastText('⚡ Download Button Ready Below!');
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    }, 600);
+      alert('Failed to trigger download.');
+    }
   };
 
   const togglePictureInPicture = async () => {
@@ -392,7 +402,7 @@ export default function App() {
             <span className="logo-subtitle">Private Storage Vault</span>
             <div
               className="bonus-banner-trigger"
-              onClick={() => { setShowBonusModal(true); setBonusReadyUrl(''); }}
+              onClick={() => setShowBonusModal(true)}
               title="Click to download YouTube, Instagram & Social media videos"
             >
               🎁 Bonus for You <span style={{ opacity: 0.8 }}>[Click Here]</span>
@@ -733,9 +743,9 @@ export default function App() {
         </div>
       )}
 
-      {/* BONUS FOR YOU: IN-APP SOCIAL MEDIA DOWNLOADER (NO NEW TABS EVER!) */}
+      {/* BONUS: CLEAN 1-CLICK SOCIAL MEDIA DOWNLOADER (NO EXTRA INNER BOXES) */}
       {showBonusModal && (
-        <div className="modal-overlay" onClick={() => setShowBonusModal(false)}>
+        <div className="modal-overlay" onClick={() => !bonusLoading && setShowBonusModal(false)}>
           <div className="bonus-modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="btn-close-bonus-modal" onClick={() => setShowBonusModal(false)}>
               ✕
@@ -743,7 +753,7 @@ export default function App() {
             <div className="bonus-header">
               <div style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>🎁</div>
               <h3>Universal Media Extractor</h3>
-              <p>Paste any YouTube, Instagram, Facebook, TikTok or X link to download directly</p>
+              <p>Paste any YouTube, Instagram, Facebook, TikTok or X link</p>
             </div>
 
             <div className="social-icons-row">
@@ -761,7 +771,7 @@ export default function App() {
                   className="bonus-input-field"
                   placeholder="Paste link here (e.g. YouTube Shorts, Insta Reel)..."
                   value={bonusUrl}
-                  onChange={(e) => { setBonusUrl(e.target.value); setBonusReadyUrl(''); }}
+                  onChange={(e) => setBonusUrl(e.target.value)}
                   required
                 />
               </div>
@@ -769,7 +779,7 @@ export default function App() {
               <div className="bonus-format-selector">
                 <div
                   className={`bonus-format-card ${bonusFormat === 'video' ? 'active' : ''}`}
-                  onClick={() => { setBonusFormat('video'); setBonusReadyUrl(''); }}
+                  onClick={() => setBonusFormat('video')}
                 >
                   <span className="icon">🎬</span>
                   <strong>Video (MP4)</strong>
@@ -777,7 +787,7 @@ export default function App() {
                 </div>
                 <div
                   className={`bonus-format-card ${bonusFormat === 'audio' ? 'active' : ''}`}
-                  onClick={() => { setBonusFormat('audio'); setBonusReadyUrl(''); }}
+                  onClick={() => setBonusFormat('audio')}
                 >
                   <span className="icon">🎵</span>
                   <strong>Audio (MP3)</strong>
@@ -785,29 +795,15 @@ export default function App() {
                 </div>
               </div>
 
+              {/* SINGLE CLEAN ACTION BUTTON */}
               <button
                 type="submit"
                 className="btn-bonus-download-now"
                 disabled={bonusLoading}
               >
-                {bonusLoading ? '⚡ Processing...' : `⚡ Extract ${bonusFormat.toUpperCase()} Here`}
+                {bonusLoading ? '⚡ Downloading File to Device...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
               </button>
             </form>
-
-            {/* IN-APP DOWNLOAD WIDGET - NO EXTERNAL WEBSITES */}
-            {bonusReadyUrl && (
-              <div className="bonus-embed-container">
-                <p style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '0.6rem' }}>
-                  ⬇️ Click Button Below to Save Directly to Device:
-                </p>
-                <iframe
-                  src={bonusReadyUrl}
-                  title="Direct Downloader"
-                  className="bonus-iframe-widget"
-                  scrolling="no"
-                />
-              </div>
-            )}
           </div>
         </div>
       )}
