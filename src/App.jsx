@@ -23,10 +23,6 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Media Download States
-  const [downloadModalItem, setDownloadModalItem] = useState(null);
-  const [downloadingFormat, setDownloadingFormat] = useState(false);
-
   // COMING SOON MODAL STATE
   const [showComingSoon, setShowComingSoon] = useState(false);
 
@@ -110,99 +106,24 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Convert Decoded Audio to clean WAV blob
-  const audioBufferToWav = (buffer) => {
-    const numOfChan = buffer.numberOfChannels;
-    const length = buffer.length * numOfChan * 2 + 44;
-    const out = new DataView(new ArrayBuffer(length));
-    let sampleRate = buffer.sampleRate;
-    let offset = 0;
-    let pos = 0;
-
-    function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
-    function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
-
-    setUint32(0x46464952); pos += 4; // RIFF
-    setUint32(length - 8); pos += 4;
-    setUint32(0x45564157); pos += 4; // WAVE
-    setUint32(0x20746d66); pos += 4; // fmt
-    setUint32(16); pos += 4;
-    setUint16(1); pos += 2;
-    setUint16(numOfChan); pos += 2;
-    setUint32(sampleRate); pos += 4;
-    setUint32(sampleRate * 2 * numOfChan); pos += 4;
-    setUint16(numOfChan * 2); pos += 2;
-    setUint16(16); pos += 2;
-    setUint32(0x61746164); pos += 4; // data
-    setUint32(length - pos - 4); pos += 4;
-
-    const channels = [];
-    for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
-
-    while (pos < length) {
-      for (let i = 0; i < numOfChan; i++) {
-        let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-        out.setInt16(pos, sample, true);
-        pos += 2;
-      }
-      offset++;
+  // DIRECT INSTANT DOWNLOAD (NO MODALS, NO TABS)
+  const handleDirectDownload = (item) => {
+    const rawUrl = getMediaUrl(item.url);
+    let downloadUrl = rawUrl;
+    if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
+      downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
     }
-    return new Blob([out], { type: 'audio/wav' });
-  };
 
-  // DIRECT VAULT MEDIA DOWNLOAD (NO NEW TABS)
-  const downloadAs = async (format) => {
-    if (!downloadModalItem) return;
-    setDownloadingFormat(true);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = item.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-    const baseName = downloadModalItem.name.replace(/\.[^/.]+$/, '');
-    const rawUrl = getMediaUrl(downloadModalItem.url);
-
-    try {
-      if (format === 'video' || downloadModalItem.type !== 'video') {
-        let downloadUrl = rawUrl;
-        if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
-          downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
-        }
-
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = downloadModalItem.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else if (format === 'audio') {
-        const response = await fetch(rawUrl, { mode: 'cors' });
-        const arrayBuffer = await response.arrayBuffer();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        const wavBlob = audioBufferToWav(decodedBuffer);
-
-        const blobUrl = window.URL.createObjectURL(wavBlob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `${baseName}_audio.wav`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
-      }
-    } catch (err) {
-      let fallbackUrl = rawUrl;
-      if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
-        fallbackUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
-      }
-      const a = document.createElement('a');
-      a.href = fallbackUrl;
-      a.download = `${baseName}.${format === 'audio' ? 'wav' : 'mp4'}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } finally {
-      setDownloadingFormat(false);
-      setDownloadModalItem(null);
-    }
+    setToastText(`⚡ Download Started for ${item.name}`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
   };
 
   const togglePictureInPicture = async () => {
@@ -581,7 +502,7 @@ export default function App() {
                   </button>
                   <button
                     className="btn-action-download"
-                    onClick={() => setDownloadModalItem(item)}
+                    onClick={() => handleDirectDownload(item)}
                     title="Download"
                   >
                     ⬇️ Download
@@ -626,7 +547,7 @@ export default function App() {
                 )}
                 <button
                   className="btn-modal-download-styled"
-                  onClick={() => setDownloadModalItem(activeMedia)}
+                  onClick={() => handleDirectDownload(activeMedia)}
                   title="Download File"
                 >
                   ⬇️ Download
@@ -660,57 +581,6 @@ export default function App() {
                 />
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3D TILT DOWNLOAD CHOICE MODAL (FOR VAULT MEDIA) */}
-      {downloadModalItem && (
-        <div className="modal-overlay" onClick={() => !downloadingFormat && setDownloadModalItem(null)}>
-          <div className="download-choice-card" onClick={(e) => e.stopPropagation()}>
-            <div className="download-choice-header">
-              <h3>Download Media</h3>
-              <p>{downloadModalItem.name}</p>
-            </div>
-
-            {downloadingFormat ? (
-              <p style={{ margin: '2rem 0', color: 'var(--accent-cyan)', fontWeight: 700 }}>
-                Saving to device...
-              </p>
-            ) : (
-              <div className="download-options-grid">
-                <button
-                  className="download-option-btn video-opt"
-                  onClick={() => downloadAs('video')}
-                >
-                  <span className="opt-icon">🎬</span>
-                  <div className="opt-text">
-                    <strong>Full Video (.mp4)</strong>
-                    <span>Complete video with sound</span>
-                  </div>
-                </button>
-
-                <button
-                  className="download-option-btn audio-opt"
-                  onClick={() => downloadAs('audio')}
-                >
-                  <span className="opt-icon">🎵</span>
-                  <div className="opt-text">
-                    <strong>Audio Only (.wav)</strong>
-                    <span>Extract audio stream</span>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {!downloadingFormat && (
-              <button
-                className="btn-cancel-download"
-                onClick={() => setDownloadModalItem(null)}
-              >
-                Cancel
-              </button>
-            )}
           </div>
         </div>
       )}
