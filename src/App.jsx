@@ -8,7 +8,7 @@ export default function App() {
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ username: '', password: '' });
 
-  // Light / Dark Theme
+  // 3-Way Theme State: 'dark' | 'light' | 'white'
   const [theme, setTheme] = useState(localStorage.getItem('vault_theme') || 'dark');
 
   const [items, setItems] = useState([]);
@@ -37,8 +37,13 @@ export default function App() {
     localStorage.setItem('vault_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  // Cycle between Dark -> Light -> White -> Dark
+  const cycleTheme = () => {
+    setTheme((prev) => {
+      if (prev === 'dark') return 'light';
+      if (prev === 'light') return 'white';
+      return 'dark';
+    });
   };
 
   useEffect(() => {
@@ -106,24 +111,37 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // DIRECT INSTANT DOWNLOAD (NO MODALS, NO TABS)
-  const handleDirectDownload = (item) => {
+  // TRUE BLOB DOWNLOAD (DIRECT DEVICE SAVE)
+  const handleTrueDownload = async (item) => {
     const rawUrl = getMediaUrl(item.url);
-    let downloadUrl = rawUrl;
-    if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
-      downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
-    }
-
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = item.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    setToastText(`⚡ Download Started for ${item.name}`);
+    setToastText(`⬇️ Downloading ${item.name}...`);
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+
+    try {
+      const response = await fetch(rawUrl, { mode: 'cors' });
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+      setToastText(`⚡ Download Complete!`);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      const a = document.createElement('a');
+      a.href = rawUrl;
+      a.download = item.name;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setShowToast(false);
+    }
   };
 
   const togglePictureInPicture = async () => {
@@ -274,388 +292,392 @@ export default function App() {
   }
 
   return (
-    <div className="vault-container">
-      {/* Top Header */}
-      <header className="vault-header">
-        <div className="logo-badge" title="Hover for 3D orbital spin!">
-          <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
-          <div className="logo-text">
-            <h1 className="logo-title-animated">MEHRA SPACE</h1>
-            <span className="logo-subtitle">Private Storage Vault</span>
-            
-            {/* COMING SOON LAB TRIGGER BADGE */}
-            <div
-              className="coming-soon-trigger"
-              onClick={() => setShowComingSoon(true)}
-              title="Click to preview upcoming tools & features"
-            >
-              🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>
+    <>
+      {/* BACKGROUND VIDEO & OVERLAY SYSTEM */}
+      <div className="bg-video-container">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="bg-video"
+          src="https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-screens-with-code-31930-large.mp4"
+        />
+      </div>
+      <div className="bg-overlay" />
+
+      <div className="vault-container">
+        {/* Top Header */}
+        <header className="vault-header">
+          <div className="logo-badge" title="Hover for 3D orbital spin!">
+            <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
+            <div className="logo-text">
+              <h1 className="logo-title-animated">MEHRA SPACE</h1>
+              <span className="logo-subtitle">Private Storage Vault</span>
+              
+              {/* COMING SOON LAB TRIGGER BADGE */}
+              <div
+                className="coming-soon-trigger"
+                onClick={() => setShowComingSoon(true)}
+                title="Click to preview upcoming tools & features"
+              >
+                🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="header-actions">
-          <button
-            className="theme-toggle-btn"
-            onClick={toggleTheme}
-            title="Toggle Light / Dark Mode"
-          >
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
+          <div className="header-actions">
+            <button
+              className="theme-toggle-btn"
+              onClick={cycleTheme}
+              title="Switch Theme (Dark / Light / White)"
+            >
+              {theme === 'dark' && '🌙 Dark Mode'}
+              {theme === 'light' && '☀️ Light Mode'}
+              {theme === 'white' && '⬜ White BG'}
+            </button>
 
-          <span className="username-tag">● {user}</span>
-          <button onClick={handleLogout} className="btn-logout">
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {/* Stats Cards */}
-      <section className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-info">
-            <p>Total Items</p>
-            <h2>{items.length}</h2>
+            <span className="username-tag">● {user}</span>
+            <button onClick={handleLogout} className="btn-logout">
+              Logout
+            </button>
           </div>
-          <div className="stat-icon">📦</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-info">
-            <p>Videos Stored</p>
-            <h2 style={{ color: 'var(--accent-cyan)' }}>{videoCount}</h2>
-          </div>
-          <div className="stat-icon">🎬</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-info">
-            <p>Images Stored</p>
-            <h2 style={{ color: 'var(--accent-blue)' }}>{imageCount}</h2>
-          </div>
-          <div className="stat-icon">📸</div>
-        </div>
-      </section>
+        </header>
 
-      {/* Upload Zone */}
-      <section className="upload-card">
-        <div className="upload-methods-grid">
-          <div
-            className={`method-card ${uploadMode === 'file' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('file'); setSelectedFile(null); }}
-          >
-            <span className="method-icon">📄</span>
-            <div className="method-title">Direct File</div>
-            <div className="method-subtitle">Single / multiple media files</div>
+        {/* Stats Cards */}
+        <section className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Total Items</p>
+              <h2>{items.length}</h2>
+            </div>
+            <div className="stat-icon">📦</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Videos Stored</p>
+              <h2 style={{ color: 'var(--accent-cyan)' }}>{videoCount}</h2>
+            </div>
+            <div className="stat-icon">🎬</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Images Stored</p>
+              <h2 style={{ color: 'var(--accent-blue)' }}>{imageCount}</h2>
+            </div>
+            <div className="stat-icon">📸</div>
+          </div>
+        </section>
+
+        {/* Upload Zone */}
+        <section className="upload-card">
+          <div className="upload-methods-grid">
+            <div
+              className={`method-card ${uploadMode === 'file' ? 'active' : ''}`}
+              onClick={() => { setUploadMode('file'); setSelectedFile(null); }}
+            >
+              <span className="method-icon">📄</span>
+              <div className="method-title">Direct File</div>
+              <div className="method-subtitle">Single / multiple media files</div>
+            </div>
+
+            <div
+              className={`method-card ${uploadMode === 'zip' ? 'active' : ''}`}
+              onClick={() => { setUploadMode('zip'); setSelectedFile(null); }}
+            >
+              <span className="method-icon">🗜️</span>
+              <div className="method-title">ZIP Archive</div>
+              <div className="method-subtitle">Auto-extract bulk media</div>
+            </div>
+
+            <div
+              className={`method-card ${uploadMode === 'drive' ? 'active' : ''}`}
+              onClick={() => { setUploadMode('drive'); setSelectedFile(null); }}
+            >
+              <span className="method-icon">☁️</span>
+              <div className="method-title">Google Drive</div>
+              <div className="method-subtitle">Import public folder/files</div>
+            </div>
           </div>
 
-          <div
-            className={`method-card ${uploadMode === 'zip' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('zip'); setSelectedFile(null); }}
-          >
-            <span className="method-icon">🗜️</span>
-            <div className="method-title">ZIP Archive</div>
-            <div className="method-subtitle">Auto-extract bulk media</div>
-          </div>
+          <form className="upload-form" onSubmit={handleUpload}>
+            <input
+              type="text"
+              className="input-box"
+              placeholder="Target Folder (e.g. Videos, Personal)"
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+            />
 
-          <div
-            className={`method-card ${uploadMode === 'drive' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('drive'); setSelectedFile(null); }}
-          >
-            <span className="method-icon">☁️</span>
-            <div className="method-title">Google Drive</div>
-            <div className="method-subtitle">Import public folder/files</div>
-          </div>
-        </div>
+            {uploadMode === 'file' && (
+              <div className="file-input-wrapper">
+                <input
+                  id="media-upload-input"
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                />
+              </div>
+            )}
 
-        <form className="upload-form" onSubmit={handleUpload}>
+            {uploadMode === 'zip' && (
+              <div className="file-input-wrapper">
+                <input
+                  id="media-upload-input"
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                />
+              </div>
+            )}
+
+            {uploadMode === 'drive' && (
+              <input
+                type="url"
+                className="input-box"
+                placeholder="Paste public Google Drive share link..."
+                value={driveUrl}
+                onChange={(e) => setDriveUrl(e.target.value)}
+              />
+            )}
+
+            <button type="submit" className="btn-upload-submit" disabled={uploading}>
+              {uploading ? '⚡ Uploading...' : '⚡ Upload Now'}
+            </button>
+          </form>
+
+          {uploading && (
+            <div className="progress-container">
+              <div className="progress-header">
+                <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD...</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Controls Bar */}
+        <section className="controls-bar">
+          <div className="filter-pills">
+            <button
+              className={`pill-btn ${activeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('all')}
+            >
+              All ({items.length})
+            </button>
+            <button
+              className={`pill-btn ${activeFilter === 'video' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('video')}
+            >
+              Videos ({videoCount})
+            </button>
+            <button
+              className={`pill-btn ${activeFilter === 'image' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('image')}
+            >
+              Images ({imageCount})
+            </button>
+          </div>
           <input
             type="text"
-            className="input-box"
-            placeholder="Target Folder (e.g. Videos, Personal)"
-            value={folder}
-            onChange={(e) => setFolder(e.target.value)}
+            placeholder="🔍 Search..."
+            className="input-box search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
+        </section>
 
-          {uploadMode === 'file' && (
-            <div className="file-input-wrapper">
-              <input
-                id="media-upload-input"
-                type="file"
-                onChange={(e) => setSelectedFile(e.target.files[0])}
-              />
-            </div>
-          )}
-
-          {uploadMode === 'zip' && (
-            <div className="file-input-wrapper">
-              <input
-                id="media-upload-input"
-                type="file"
-                accept=".zip"
-                onChange={(e) => setSelectedFile(e.target.files[0])}
-              />
-            </div>
-          )}
-
-          {uploadMode === 'drive' && (
-            <input
-              type="url"
-              className="input-box"
-              placeholder="Paste public Google Drive share link..."
-              value={driveUrl}
-              onChange={(e) => setDriveUrl(e.target.value)}
-            />
-          )}
-
-          <button type="submit" className="btn-upload-submit" disabled={uploading}>
-            {uploading ? '⚡ Uploading...' : '⚡ Upload Now'}
-          </button>
-        </form>
-
-        {uploading && (
-          <div className="progress-container">
-            <div className="progress-header">
-              <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD...</span>
-              <span>{progress}%</span>
-            </div>
-            <div className="progress-track">
-              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Controls Bar */}
-      <section className="controls-bar">
-        <div className="filter-pills">
-          <button
-            className={`pill-btn ${activeFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('all')}
-          >
-            All ({items.length})
-          </button>
-          <button
-            className={`pill-btn ${activeFilter === 'video' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('video')}
-          >
-            Videos ({videoCount})
-          </button>
-          <button
-            className={`pill-btn ${activeFilter === 'image' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('image')}
-          >
-            Images ({imageCount})
-          </button>
-        </div>
-        <input
-          type="text"
-          placeholder="🔍 Search..."
-          className="input-box search-input"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </section>
-
-      {/* Gallery Cards */}
-      <div className="media-grid">
-        {filteredItems.map((item) => {
-          const mediaUrl = getMediaUrl(item.url);
-          return (
-            <div key={item._id} className="item-card">
-              <div className="preview-container">
-                <span className="type-badge">{item.type}</span>
-                {item.type === 'video' ? (
-                  <>
-                    <video
+        {/* Gallery Cards */}
+        <div className="media-grid">
+          {filteredItems.map((item) => {
+            const mediaUrl = getMediaUrl(item.url);
+            return (
+              <div key={item._id} className="item-card">
+                <div className="preview-container">
+                  <span className="type-badge">{item.type}</span>
+                  {item.type === 'video' ? (
+                    <>
+                      <video
+                        src={mediaUrl}
+                        className="preview-media"
+                        preload="metadata"
+                        crossOrigin="anonymous"
+                        playsInline
+                      />
+                      <button
+                        className="play-overlay-btn"
+                        onClick={() => setActiveMedia(item)}
+                        title="Play"
+                      >
+                        ▶
+                      </button>
+                    </>
+                  ) : (
+                    <img
                       src={mediaUrl}
+                      alt={item.name}
                       className="preview-media"
-                      preload="metadata"
-                      crossOrigin="anonymous"
-                      playsInline
-                    />
-                    <button
-                      className="play-overlay-btn"
                       onClick={() => setActiveMedia(item)}
-                      title="Play"
+                      style={{ cursor: 'pointer' }}
+                    />
+                  )}
+                </div>
+                <div className="card-content">
+                  <h4 className="item-title" title={item.name}>{item.name}</h4>
+                  <span className="item-folder">📁 {item.folder || 'General'}</span>
+                  <div className="card-actions">
+                    <button
+                      className="btn-action-view"
+                      onClick={() => setActiveMedia(item)}
                     >
-                      ▶
+                      {item.type === 'video' ? '▶ Play' : '👁 View'}
                     </button>
-                  </>
-                ) : (
-                  <img
-                    src={mediaUrl}
-                    alt={item.name}
-                    className="preview-media"
-                    onClick={() => setActiveMedia(item)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                )}
+                    <button
+                      className="btn-action-download"
+                      onClick={() => handleTrueDownload(item)}
+                      title="Download"
+                    >
+                      ⬇️ Download
+                    </button>
+                    <button
+                      className="btn-action-delete"
+                      onClick={() => handleDelete(item._id)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="card-content">
-                <h4 className="item-title" title={item.name}>{item.name}</h4>
-                <span className="item-folder">📁 {item.folder || 'General'}</span>
-                <div className="card-actions">
+            );
+          })}
+        </div>
+
+        {/* FULLSCREEN THEATRE MODAL (WITH BACK BUTTON) */}
+        {activeMedia && (
+          <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
+            <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <button
-                    className="btn-action-view"
-                    onClick={() => setActiveMedia(item)}
+                    className="btn-back-vault"
+                    onClick={() => setActiveMedia(null)}
                   >
-                    {item.type === 'video' ? '▶ Play' : '👁 View'}
+                    ← Back to Vault
                   </button>
+                  <h3 className="modal-title">{activeMedia.name}</h3>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  {activeMedia.type === 'video' && (
+                    <button
+                      className="theme-toggle-btn"
+                      onClick={togglePictureInPicture}
+                      title="Floating Mini Player"
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
+                    >
+                      📺 PiP
+                    </button>
+                  )}
                   <button
-                    className="btn-action-download"
-                    onClick={() => handleDirectDownload(item)}
-                    title="Download"
+                    className="btn-modal-download-styled"
+                    onClick={() => handleTrueDownload(activeMedia)}
                   >
                     ⬇️ Download
                   </button>
                   <button
-                    className="btn-action-delete"
-                    onClick={() => handleDelete(item._id)}
+                    className="btn-close-modal"
+                    onClick={() => setActiveMedia(null)}
                   >
-                    🗑
+                    ✕
                   </button>
                 </div>
               </div>
+              <div className="modal-player-box">
+                {activeMedia.type === 'video' ? (
+                  <video
+                    ref={videoRef}
+                    src={getMediaUrl(activeMedia.url)}
+                    controls
+                    autoPlay
+                    crossOrigin="anonymous"
+                    playsInline
+                    preload="auto"
+                    className="modal-media-elem"
+                  />
+                ) : (
+                  <img
+                    src={getMediaUrl(activeMedia.url)}
+                    alt={activeMedia.name}
+                    className="modal-media-elem"
+                    style={{ objectFit: 'contain' }}
+                  />
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        )}
 
-      {/* FULLSCREEN THEATRE MODAL (WITH PROMINENT BACK BUTTON) */}
-      {activeMedia && (
-        <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
-          <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <button
-                  className="btn-back-vault"
-                  onClick={() => setActiveMedia(null)}
-                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
-                >
+        {/* COMING SOON LAB MODAL */}
+        {showComingSoon && (
+          <div className="modal-overlay" onClick={() => setShowComingSoon(false)}>
+            <div className="cs-modal-card" onClick={(e) => e.stopPropagation()}>
+              <button className="btn-close-cs-modal" onClick={() => setShowComingSoon(false)}>
+                ✕
+              </button>
+              
+              <div className="cs-header">
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.4rem' }}>⚡</div>
+                <h3>MEHRA SPACE LAB</h3>
+                <p>Next-Gen High Speed Web Tools Under Active Development</p>
+              </div>
+
+              <div className="cs-grid">
+                <div className="cs-card">
+                  <div className="cs-card-icon">📑</div>
+                  <h4 className="cs-card-title">PDF & Image Studio</h4>
+                  <p className="cs-card-desc">Seamlessly convert images to PDF, extract JPGs from PDFs, and adjust or resize image dimensions.</p>
+                  <div className="cs-tags">
+                    <span className="cs-tag">JPG to PDF</span>
+                    <span className="cs-tag">PDF to JPG</span>
+                    <span className="cs-tag">Image Resizer</span>
+                  </div>
+                  <div className="cs-status-pill">🔒 Coming Soon</div>
+                </div>
+
+                <div className="cs-card">
+                  <div className="cs-card-icon">🎬</div>
+                  <h4 className="cs-card-title">Universal Social Extractor</h4>
+                  <p className="cs-card-desc">High-speed lossless media downloader for YouTube, Instagram Reels, Facebook & TikTok links.</p>
+                  <div className="cs-tags">
+                    <span className="cs-tag">YouTube / Insta</span>
+                    <span className="cs-tag">Video (MP4)</span>
+                    <span className="cs-tag">Audio (MP3)</span>
+                  </div>
+                  <div className="cs-status-pill">🔒 Coming Soon</div>
+                </div>
+              </div>
+
+              <div className="cs-footer-actions">
+                <button className="btn-back-vault" onClick={() => setShowComingSoon(false)}>
                   ← Back to Vault
                 </button>
-                <h3 className="modal-title">{activeMedia.name}</h3>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                {activeMedia.type === 'video' && (
-                  <button
-                    className="btn-pip-modal"
-                    onClick={togglePictureInPicture}
-                    title="Floating Mini Player"
-                  >
-                    📺 Mini Player
-                  </button>
-                )}
-                <button
-                  className="btn-modal-download-styled"
-                  onClick={() => handleDirectDownload(activeMedia)}
-                  title="Download File"
-                >
-                  ⬇️ Download
-                </button>
-                <button
-                  className="btn-close-modal"
-                  onClick={() => setActiveMedia(null)}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <div className="modal-player-box">
-              {activeMedia.type === 'video' ? (
-                <video
-                  ref={videoRef}
-                  src={getMediaUrl(activeMedia.url)}
-                  controls
-                  autoPlay
-                  crossOrigin="anonymous"
-                  playsInline
-                  preload="auto"
-                  className="modal-media-elem"
-                />
-              ) : (
-                <img
-                  src={getMediaUrl(activeMedia.url)}
-                  alt={activeMedia.name}
-                  className="modal-media-elem"
-                  style={{ objectFit: 'contain' }}
-                />
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ======================================================= */}
-      {/* COMING SOON LAB SHOWCASE MODAL (EXACTLY 2 CARDS + BACK) */}
-      {/* ======================================================= */}
-      {showComingSoon && (
-        <div className="modal-overlay" onClick={() => setShowComingSoon(false)}>
-          <div className="cs-modal-card" onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-cs-modal" onClick={() => setShowComingSoon(false)}>
-              ✕
-            </button>
-            
-            <div className="cs-header">
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.4rem' }}>⚡</div>
-              <h3>MEHRA SPACE LAB</h3>
-              <p>Next-Gen High Speed Web Tools Under Active Development</p>
-            </div>
-
-            {/* SIDE-BY-SIDE 2 CARDS GRID */}
-            <div className="cs-grid">
-              
-              {/* CARD 1: PDF & IMAGE STUDIO */}
-              <div className="cs-card">
-                <div className="cs-card-icon">📑</div>
-                <h4 className="cs-card-title">PDF & Image Studio</h4>
-                <p className="cs-card-desc">
-                  Seamlessly convert images to PDF documents, extract high-resolution JPGs from PDFs, and adjust or resize image dimensions instantly.
-                </p>
-                <div className="cs-tags">
-                  <span className="cs-tag">JPG to PDF</span>
-                  <span className="cs-tag">PDF to JPG</span>
-                  <span className="cs-tag">Image Resizer</span>
-                </div>
-                <div className="cs-status-pill">🔒 Coming Soon</div>
-              </div>
-
-              {/* CARD 2: UNIVERSAL SOCIAL EXTRACTOR */}
-              <div className="cs-card">
-                <div className="cs-card-icon">🎬</div>
-                <h4 className="cs-card-title">Universal Social Extractor</h4>
-                <p className="cs-card-desc">
-                  High-speed lossless media downloader for YouTube, Instagram Reels, Facebook & TikTok links into clean video or audio files.
-                </p>
-                <div className="cs-tags">
-                  <span className="cs-tag">YouTube / Insta</span>
-                  <span className="cs-tag">Video (MP4)</span>
-                  <span className="cs-tag">Audio (MP3)</span>
-                </div>
-                <div className="cs-status-pill">🔒 Coming Soon</div>
-              </div>
-
-            </div>
-
-            {/* BACK TO VAULT BUTTON */}
-            <div className="cs-footer-actions">
-              <button className="btn-back-vault" onClick={() => setShowComingSoon(false)}>
-                ← Back to Vault
-              </button>
+        {/* Toast Popup */}
+        {showToast && (
+          <div className="toast-popup">
+            <span className="toast-icon">🚀</span>
+            <div className="toast-body">
+              <h4>Notification</h4>
+              <p>{toastText}</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast Popup */}
-      {showToast && (
-        <div className="toast-popup">
-          <span className="toast-icon">🚀</span>
-          <div className="toast-body">
-            <h4>Success!</h4>
-            <p>{toastText}</p>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
