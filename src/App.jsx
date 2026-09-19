@@ -125,10 +125,10 @@ export default function App() {
     function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
     function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
 
-    setUint32(0x46464952); pos += 4;
+    setUint32(0x46464952); pos += 4; // RIFF
     setUint32(length - 8); pos += 4;
-    setUint32(0x45564157); pos += 4;
-    setUint32(0x20746d66); pos += 4;
+    setUint32(0x45564157); pos += 4; // WAVE
+    setUint32(0x20746d66); pos += 4; // fmt
     setUint32(16); pos += 4;
     setUint16(1); pos += 2;
     setUint16(numOfChan); pos += 2;
@@ -136,7 +136,7 @@ export default function App() {
     setUint32(sampleRate * 2 * numOfChan); pos += 4;
     setUint16(numOfChan * 2); pos += 2;
     setUint16(16); pos += 2;
-    setUint32(0x61746164); pos += 4;
+    setUint32(0x61746164); pos += 4; // data
     setUint32(length - pos - 4); pos += 4;
 
     const channels = [];
@@ -208,7 +208,7 @@ export default function App() {
     }
   };
 
-  // 100% RELIABLE DIRECT SOCIAL MEDIA DOWNLOAD ENGINE
+  // DIRECT SOCIAL DOWNLOAD TRIGGER (FETCHES STREAM DIRECTLY INTO DEVICE)
   const handleBonusDownload = async (e) => {
     e.preventDefault();
     const link = bonusUrl.trim();
@@ -220,34 +220,50 @@ export default function App() {
     setBonusLoading(true);
 
     try {
-      let targetDownloadUrl = '';
+      // Direct stream conversion API (cobalt instance that returns direct download URL)
+      const res = await fetch('https://co.wuk.sh/api/json', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: link,
+          isAudioOnly: bonusFormat === 'audio',
+          aFormat: 'mp3',
+          vQuality: '1080'
+        })
+      });
 
-      if (link.includes('youtube.com') || link.includes('youtu.be')) {
-        // Direct stream downloader endpoint
-        targetDownloadUrl = `https://yt1s.com.co/download/?url=${encodeURIComponent(link)}&format=${bonusFormat === 'audio' ? 'mp3' : 'mp4'}`;
-      } else if (link.includes('instagram.com')) {
-        targetDownloadUrl = `https://fastdl.app/download?url=${encodeURIComponent(link)}`;
+      const data = await res.json();
+
+      if (data && (data.url || data.audio)) {
+        const directFileUrl = data.url || data.audio;
+        
+        // Trigger browser save
+        const a = document.createElement('a');
+        a.href = directFileUrl;
+        a.download = `MehraSpace_${Date.now()}.${bonusFormat === 'audio' ? 'mp3' : 'mp4'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setToastText(`⚡ ${bonusFormat.toUpperCase()} Download Started!`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3500);
+        setShowBonusModal(false);
+        setBonusUrl('');
       } else {
-        targetDownloadUrl = `https://en.savefrom.net/398/?url=${encodeURIComponent(link)}`;
+        // Fallback: Direct service without ad-redirects
+        const fallbackUrl = `https://loader.to/api/button/?url=${encodeURIComponent(link)}&f=${bonusFormat === 'audio' ? 'mp3' : '1080'}&color=00f2fe`;
+        window.open(fallbackUrl, '_blank');
+        setShowBonusModal(false);
       }
-
-      // Direct trigger anchor
-      const downloadLink = document.createElement('a');
-      downloadLink.href = targetDownloadUrl;
-      downloadLink.target = '_blank';
-      downloadLink.rel = 'noopener noreferrer';
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-
-      setToastText(`⚡ Download Launched for ${bonusFormat.toUpperCase()}!`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3500);
-
-      setShowBonusModal(false);
-      setBonusUrl('');
     } catch (err) {
-      alert('Download error. Please verify the URL.');
+      // Direct fallback
+      const fallbackUrl = `https://loader.to/api/button/?url=${encodeURIComponent(link)}&f=${bonusFormat === 'audio' ? 'mp3' : '1080'}&color=00f2fe`;
+      window.open(fallbackUrl, '_blank');
+      setShowBonusModal(false);
     } finally {
       setBonusLoading(false);
     }
