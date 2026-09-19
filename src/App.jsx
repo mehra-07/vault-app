@@ -23,14 +23,15 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Regular Download States
+  // Regular Media Download States
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
 
-  // BONUS SOCIAL DOWNLOADER MODAL STATES
+  // BONUS SOCIAL DOWNLOADER MODAL STATES (IN-APP DIRECT)
   const [showBonusModal, setShowBonusModal] = useState(false);
   const [bonusUrl, setBonusUrl] = useState('');
   const [bonusFormat, setBonusFormat] = useState('video');
+  const [bonusReadyUrl, setBonusReadyUrl] = useState('');
   const [bonusLoading, setBonusLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,7 +155,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // FAILSAFE DIRECT FORCE DOWNLOAD FOR VAULT MEDIA
+  // DIRECT FORCE DOWNLOAD (NO POPUPS / NO TABS)
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -208,8 +209,8 @@ export default function App() {
     }
   };
 
-  // MULTI-ENGINE UNIVERSAL SOCIAL MEDIA DOWNLOADER (NO CAPTCHA / NO CLOUDFLARE BOT CHECK)
-  const handleBonusDownload = async (e) => {
+  // IN-APP EMBEDDED SOCIAL DOWNLOAD GENERATOR (NEVER LEAVES SITE)
+  const handleBonusDownload = (e) => {
     e.preventDefault();
     const link = bonusUrl.trim();
     if (!link) {
@@ -218,54 +219,19 @@ export default function App() {
     }
 
     setBonusLoading(true);
+    setBonusReadyUrl('');
 
-    try {
-      // 1. YouTube & Shorts detection
-      if (link.includes('youtube.com') || link.includes('youtu.be')) {
-        let ytId = '';
-        if (link.includes('shorts/')) {
-          ytId = link.split('shorts/')[1]?.split('?')[0];
-        } else if (link.includes('watch?v=')) {
-          ytId = link.split('watch?v=')[1]?.split('&')[0];
-        } else if (link.includes('youtu.be/')) {
-          ytId = link.split('youtu.be/')[1]?.split('?')[0];
-        }
+    // Load in-app direct widget without opening new tabs
+    const targetFormat = bonusFormat === 'audio' ? 'mp3' : 'mp4';
+    const embedUrl = `https://p.savenow.to/api/button/?url=${encodeURIComponent(link)}&f=${targetFormat}&color=00f2fe`;
 
-        if (bonusFormat === 'audio') {
-          // Direct MP3 engine
-          window.open(`https://ytmp3.nu/?url=${encodeURIComponent(link)}`, '_blank');
-        } else {
-          // Direct Video MP4 engine
-          window.open(`https://y2mate.nu/en-IN/${ytId ? ytId : encodeURIComponent(link)}`, '_blank');
-        }
-      } 
-      // 2. Instagram Reels / Stories / Posts
-      else if (link.includes('instagram.com')) {
-        window.open(`https://snapinsta.to/?url=${encodeURIComponent(link)}`, '_blank');
-      } 
-      // 3. Facebook Videos
-      else if (link.includes('facebook.com') || link.includes('fb.watch')) {
-        window.open(`https://fdown.net/download.php?url=${encodeURIComponent(link)}`, '_blank');
-      } 
-      // 4. TikTok Videos
-      else if (link.includes('tiktok.com')) {
-        window.open(`https://snaptik.app/en-us?url=${encodeURIComponent(link)}`, '_blank');
-      } 
-      // 5. Twitter / X or Any other universal link
-      else {
-        window.open(`https://en.savefrom.net/398/?url=${encodeURIComponent(link)}`, '_blank');
-      }
-
-      setToastText(`⚡ Ready! Download opened cleanly.`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3500);
-      setShowBonusModal(false);
-      setBonusUrl('');
-    } catch (err) {
-      alert('Error launching downloader. Please check the URL.');
-    } finally {
+    setTimeout(() => {
+      setBonusReadyUrl(embedUrl);
       setBonusLoading(false);
-    }
+      setToastText('⚡ Download Button Ready Below!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }, 600);
   };
 
   const togglePictureInPicture = async () => {
@@ -426,7 +392,7 @@ export default function App() {
             <span className="logo-subtitle">Private Storage Vault</span>
             <div
               className="bonus-banner-trigger"
-              onClick={() => setShowBonusModal(true)}
+              onClick={() => { setShowBonusModal(true); setBonusReadyUrl(''); }}
               title="Click to download YouTube, Instagram & Social media videos"
             >
               🎁 Bonus for You <span style={{ opacity: 0.8 }}>[Click Here]</span>
@@ -767,9 +733,9 @@ export default function App() {
         </div>
       )}
 
-      {/* BONUS FOR YOU: SOCIAL MEDIA DOWNLOADER MODAL */}
+      {/* BONUS FOR YOU: IN-APP SOCIAL MEDIA DOWNLOADER (NO NEW TABS EVER!) */}
       {showBonusModal && (
-        <div className="modal-overlay" onClick={() => !bonusLoading && setShowBonusModal(false)}>
+        <div className="modal-overlay" onClick={() => setShowBonusModal(false)}>
           <div className="bonus-modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="btn-close-bonus-modal" onClick={() => setShowBonusModal(false)}>
               ✕
@@ -777,7 +743,7 @@ export default function App() {
             <div className="bonus-header">
               <div style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>🎁</div>
               <h3>Universal Media Extractor</h3>
-              <p>Paste any video/audio link from YouTube, Instagram, Facebook, TikTok or X</p>
+              <p>Paste any YouTube, Instagram, Facebook, TikTok or X link to download directly</p>
             </div>
 
             <div className="social-icons-row">
@@ -793,9 +759,9 @@ export default function App() {
                 <input
                   type="url"
                   className="bonus-input-field"
-                  placeholder="https://www.youtube.com/... or instagram.com/reel/..."
+                  placeholder="Paste link here (e.g. YouTube Shorts, Insta Reel)..."
                   value={bonusUrl}
-                  onChange={(e) => setBonusUrl(e.target.value)}
+                  onChange={(e) => { setBonusUrl(e.target.value); setBonusReadyUrl(''); }}
                   required
                 />
               </div>
@@ -803,15 +769,15 @@ export default function App() {
               <div className="bonus-format-selector">
                 <div
                   className={`bonus-format-card ${bonusFormat === 'video' ? 'active' : ''}`}
-                  onClick={() => setBonusFormat('video')}
+                  onClick={() => { setBonusFormat('video'); setBonusReadyUrl(''); }}
                 >
                   <span className="icon">🎬</span>
                   <strong>Video (MP4)</strong>
-                  <span>Direct High Quality</span>
+                  <span>High Definition 1080p</span>
                 </div>
                 <div
                   className={`bonus-format-card ${bonusFormat === 'audio' ? 'active' : ''}`}
-                  onClick={() => setBonusFormat('audio')}
+                  onClick={() => { setBonusFormat('audio'); setBonusReadyUrl(''); }}
                 >
                   <span className="icon">🎵</span>
                   <strong>Audio (MP3)</strong>
@@ -824,9 +790,24 @@ export default function App() {
                 className="btn-bonus-download-now"
                 disabled={bonusLoading}
               >
-                {bonusLoading ? '⚡ Opening Direct Download...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
+                {bonusLoading ? '⚡ Processing...' : `⚡ Extract ${bonusFormat.toUpperCase()} Here`}
               </button>
             </form>
+
+            {/* IN-APP DOWNLOAD WIDGET - NO EXTERNAL WEBSITES */}
+            {bonusReadyUrl && (
+              <div className="bonus-embed-container">
+                <p style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '0.6rem' }}>
+                  ⬇️ Click Button Below to Save Directly to Device:
+                </p>
+                <iframe
+                  src={bonusReadyUrl}
+                  title="Direct Downloader"
+                  className="bonus-iframe-widget"
+                  scrolling="no"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
