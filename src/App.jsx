@@ -27,7 +27,7 @@ export default function App() {
   const [folderMode, setFolderMode] = useState('new');
   const [chosenFolder, setChosenFolder] = useState('General');
   const [newFolderName, setNewFolderName] = useState('');
-  
+
   const [selectedFolderTab, setSelectedFolderTab] = useState('ALL');
   const [files, setFiles] = useState([]);
   const [progress, setProgress] = useState(0);
@@ -73,10 +73,13 @@ export default function App() {
         body: JSON.stringify({ username: authUsername.trim(), password: authPassword }),
       });
       const data = await res.json();
+
+      // FIXED: Status check aur user field verification
       if (!res.ok || !data.user) {
         setAuthError(data.message || 'Auth Error');
         return;
       }
+
       setUser(data.user);
       localStorage.setItem('vaultUser', data.user);
       fetchVaultItems(data.user);
@@ -218,7 +221,7 @@ export default function App() {
         const fileUrl = item.url.startsWith('http') ? item.url : `${SERVER_URL}${item.url}`;
         const res = await fetch(fileUrl);
         const blobData = await res.blob();
-        
+
         const folderName = item.folder || 'General';
         if (folderTarget === 'ALL') {
           zip.folder(folderName).file(item.name, blobData);
@@ -248,8 +251,8 @@ export default function App() {
     }
   };
 
-  const displayedItems = (selectedFolderTab === 'ALL' 
-    ? items 
+  const displayedItems = (selectedFolderTab === 'ALL'
+    ? items
     : items.filter(i => (i.folder || 'General') === selectedFolderTab)
   ).filter(i => (i.name || '').toLowerCase().includes(search.toLowerCase()));
 
@@ -296,12 +299,12 @@ export default function App() {
           </p>
           {authError && <div style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', padding: '8px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '15px' }}>{authError}</div>}
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <input 
-              type="text" 
-              placeholder="Username" 
-              value={authUsername} 
-              onChange={(e) => setAuthUsername(e.target.value)} 
-              required 
+            <input
+              type="text"
+              placeholder="Username"
+              value={authUsername}
+              onChange={(e) => setAuthUsername(e.target.value)}
+              required
               style={{
                 background: isDark ? '#18181b' : '#f1f5f9',
                 border: isDark ? '1px solid #27272a' : '1px solid #cbd5e1',
@@ -310,14 +313,14 @@ export default function App() {
                 borderRadius: '6px',
                 outline: 'none',
                 fontSize: '0.95rem'
-              }} 
+              }}
             />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={authPassword} 
-              onChange={(e) => setAuthPassword(e.target.value)} 
-              required 
+            <input
+              type="password"
+              placeholder="Password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              required
               style={{
                 background: isDark ? '#18181b' : '#f1f5f9',
                 border: isDark ? '1px solid #27272a' : '1px solid #cbd5e1',
@@ -326,7 +329,7 @@ export default function App() {
                 borderRadius: '6px',
                 outline: 'none',
                 fontSize: '0.95rem'
-              }} 
+              }}
             />
             <button type="submit" style={{
               background: isDark ? '#ffffff' : '#0f172a',
@@ -343,7 +346,7 @@ export default function App() {
           </form>
           <div style={{ marginTop: '20px', fontSize: '0.85rem', color: isDark ? '#64748b' : '#94a3b8' }}>
             {authMode === 'login' ? "Naye user hain? " : "Pehle se registered hain? "}
-            <span 
+            <span
               onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }}
               style={{ color: isDark ? '#fff' : '#0284c7', cursor: 'pointer', textDecoration: 'underline' }}
             >
@@ -364,37 +367,37 @@ export default function App() {
       fontFamily: 'sans-serif',
       overflowX: 'hidden'
     }}>
-      
+
       {/* Background Media */}
       {bgMedia ? (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1, overflow: 'hidden' }}>
           {isBgPhoto && (
-            <div 
-              style={{ 
-                width: '100%', 
-                height: '100%', 
-                backgroundImage: `url(${getMediaUrl(bgMedia.url)})`, 
-                backgroundSize: 'cover', 
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${getMediaUrl(bgMedia.url)})`,
+                backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: isDark ? 'brightness(0.45)' : 'brightness(0.92)'
-              }} 
+              }}
             />
           )}
 
           {isBgVideo && (
-            <video 
-              key={bgMedia.url} 
-              src={getMediaUrl(bgMedia.url)} 
-              autoPlay 
-              loop 
-              muted 
-              playsInline 
-              style={{ 
-                width: '100%', 
-                height: '100%', 
-                objectFit: 'cover', 
-                filter: isDark ? 'brightness(0.4)' : 'brightness(0.88)' 
-              }} 
+            <video
+              key={bgMedia.url}
+              src={getMediaUrl(bgMedia.url)}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                filter: isDark ? 'brightness(0.4)' : 'brightness(0.88)'
+              }}
             />
           )}
 
@@ -404,7 +407,7 @@ export default function App() {
             left: 0,
             width: '100%',
             height: '100%',
-            background: isDark 
+            background: isDark
               ? 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 100%)'
               : 'linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.55) 100%)'
           }} />
@@ -423,7 +426,7 @@ export default function App() {
 
       {/* Foreground Content */}
       <div style={{ position: 'relative', zIndex: 2, maxWidth: '1200px', margin: '0 auto', padding: '20px 25px 80px' }}>
-        
+
         <nav style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -432,10 +435,10 @@ export default function App() {
           borderBottom: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
         }}>
           <div style={{ fontSize: '1.3rem', fontWeight: '800', letterSpacing: '2px' }}>APERTURE</div>
-          
+
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-            <button 
-              onClick={toggleTheme} 
+            <button
+              onClick={toggleTheme}
               style={{
                 background: isDark ? '#1e293b' : '#ffffff',
                 border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
@@ -454,8 +457,8 @@ export default function App() {
             <span style={{ fontSize: '0.85rem', color: isDark ? '#cbd5e1' : '#0f172a' }}>
               Vault: <strong>{user}</strong>
             </span>
-            <button 
-              onClick={handleLogout} 
+            <button
+              onClick={handleLogout}
               style={{
                 background: isDark ? 'transparent' : '#ffffff',
                 border: isDark ? '1px solid rgba(255,255,255,0.3)' : '1px solid #cbd5e1',
@@ -493,16 +496,16 @@ export default function App() {
             textAlign: 'left'
           }}>
             <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              
+
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', borderBottom: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0', paddingBottom: '12px' }}>
                 <span style={{ fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#64748b' }}>Upload Method:</span>
                 {['single', 'multiple', 'zip', 'drive'].map(m => (
                   <label key={m} style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: isDark ? '#cbd5e1' : '#334155' }}>
-                    <input 
-                      type="radio" 
-                      name="method" 
-                      checked={uploadMethod === m} 
-                      onChange={() => setUploadMethod(m)} 
+                    <input
+                      type="radio"
+                      name="method"
+                      checked={uploadMethod === m}
+                      onChange={() => setUploadMethod(m)}
                     />
                     {m === 'single' ? 'One by One' : m === 'multiple' ? 'Multi Files' : m === 'zip' ? '📦 Upload ZIP' : 'Google Drive'}
                   </label>
@@ -513,31 +516,31 @@ export default function App() {
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#64748b' }}>Target Folder:</span>
                   <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: isDark ? '#cbd5e1' : '#334155' }}>
-                    <input 
-                      type="radio" 
-                      name="fMode" 
-                      checked={folderMode === 'new'} 
-                      onChange={() => setFolderMode('new')} 
+                    <input
+                      type="radio"
+                      name="fMode"
+                      checked={folderMode === 'new'}
+                      onChange={() => setFolderMode('new')}
                     /> + Create New Folder
                   </label>
                   {existingFolders.length > 0 && (
                     <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: isDark ? '#cbd5e1' : '#334155' }}>
-                      <input 
-                        type="radio" 
-                        name="fMode" 
-                        checked={folderMode === 'existing'} 
-                        onChange={() => setFolderMode('existing')} 
+                      <input
+                        type="radio"
+                        name="fMode"
+                        checked={folderMode === 'existing'}
+                        onChange={() => setFolderMode('existing')}
                       /> Existing Folder
                     </label>
                   )}
                 </div>
 
                 {folderMode === 'new' ? (
-                  <input 
-                    type="text" 
-                    placeholder="Folder Name likhein" 
-                    value={newFolderName} 
-                    onChange={(e) => setNewFolderName(e.target.value)} 
+                  <input
+                    type="text"
+                    placeholder="Folder Name likhein"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
                     style={{
                       background: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
                       border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1',
@@ -545,13 +548,13 @@ export default function App() {
                       padding: '8px 12px',
                       borderRadius: '6px',
                       outline: 'none'
-                    }} 
-                    required 
+                    }}
+                    required
                   />
                 ) : (
-                  <select 
-                    value={chosenFolder} 
-                    onChange={(e) => setChosenFolder(e.target.value)} 
+                  <select
+                    value={chosenFolder}
+                    onChange={(e) => setChosenFolder(e.target.value)}
                     style={{
                       background: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
                       border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1',
@@ -571,36 +574,36 @@ export default function App() {
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {uploadMethod === 'drive' ? (
                   <>
-                    <input 
-                      type="text" 
-                      placeholder="File Name" 
-                      value={driveFileName} 
-                      onChange={(e) => setDriveFileName(e.target.value)} 
-                      style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="File Name"
+                      value={driveFileName}
+                      onChange={(e) => setDriveFileName(e.target.value)}
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }}
+                      required
                     />
-                    <input 
-                      type="url" 
-                      placeholder="Google Drive URL" 
-                      value={driveUrl} 
-                      onChange={(e) => setDriveUrl(e.target.value)} 
-                      style={{ flex: 2, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }} 
-                      required 
+                    <input
+                      type="url"
+                      placeholder="Google Drive URL"
+                      value={driveUrl}
+                      onChange={(e) => setDriveUrl(e.target.value)}
+                      style={{ flex: 2, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }}
+                      required
                     />
                   </>
                 ) : (
-                  <input 
-                    type="file" 
-                    accept={uploadMethod === 'zip' ? '.zip,.rar,.7z' : 'video/*,image/*'} 
-                    multiple={uploadMethod === 'multiple'} 
-                    onChange={(e) => setFiles(Array.from(e.target.files))} 
-                    required 
-                    style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }} 
+                  <input
+                    type="file"
+                    accept={uploadMethod === 'zip' ? '.zip,.rar,.7z' : 'video/*,image/*'}
+                    multiple={uploadMethod === 'multiple'}
+                    onChange={(e) => setFiles(Array.from(e.target.files))}
+                    required
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #cbd5e1', background: isDark ? 'rgba(0,0,0,0.6)' : '#ffffff', color: isDark ? '#fff' : '#000' }}
                   />
                 )}
-                <button 
-                  type="submit" 
-                  disabled={uploading} 
+                <button
+                  type="submit"
+                  disabled={uploading}
                   style={{
                     background: isDark ? '#38bdf8' : '#0284c7',
                     color: '#ffffff',
@@ -626,11 +629,11 @@ export default function App() {
 
         {/* Search & Bulk ZIP Download */}
         <div style={{ display: 'flex', gap: '15px', margin: '30px 0 20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <input 
-            type="text" 
-            placeholder="Search uploaded video or photo by name..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Search uploaded video or photo by name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             style={{
               flex: 1,
               minWidth: '260px',
@@ -641,9 +644,9 @@ export default function App() {
               color: isDark ? '#fff' : '#000',
               borderRadius: '8px',
               outline: 'none'
-            }} 
+            }}
           />
-          <button 
+          <button
             onClick={() => handleDownloadZip('ALL')}
             disabled={zipping}
             style={{
@@ -666,8 +669,8 @@ export default function App() {
         {/* Folder Tabs */}
         <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => setSelectedFolderTab('ALL')} 
+            <button
+              onClick={() => setSelectedFolderTab('ALL')}
               style={{
                 border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1',
                 padding: '8px 16px',
@@ -682,8 +685,8 @@ export default function App() {
               All Files ({items.length})
             </button>
             {existingFolders.map((f, i) => (
-              <button 
-                key={i} 
+              <button
+                key={i}
                 onClick={() => setSelectedFolderTab(f)}
                 style={{
                   border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1',
@@ -702,7 +705,7 @@ export default function App() {
           </div>
 
           {selectedFolderTab !== 'ALL' && (
-            <button 
+            <button
               onClick={() => handleDownloadZip(selectedFolderTab)}
               disabled={zipping}
               style={{
@@ -734,13 +737,13 @@ export default function App() {
               const isCurrentlyActive = (activeMedia && activeMedia._id === item._id) || (!activeMedia && bgMedia && bgMedia._id === item._id);
 
               return (
-                <div 
-                  key={item._id} 
+                <div
+                  key={item._id}
                   style={{
                     background: isDark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.85)',
                     backdropFilter: 'blur(10px)',
-                    border: isCurrentlyActive 
-                      ? '2px solid #38bdf8' 
+                    border: isCurrentlyActive
+                      ? '2px solid #38bdf8'
                       : (isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)'),
                     boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
                     borderRadius: '12px',
@@ -749,8 +752,8 @@ export default function App() {
                     flexDirection: 'column'
                   }}
                 >
-                  <div 
-                    style={{ position: 'relative', height: '160px', background: '#09090b', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                  <div
+                    style={{ position: 'relative', height: '160px', background: '#09090b', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={() => !itemIsDrive && setActiveMedia(item)}
                   >
                     {itemIsDrive ? (
