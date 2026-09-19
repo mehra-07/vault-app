@@ -293,7 +293,7 @@ export default function App() {
 
   return (
     <>
-      {/* BACKGROUND VIDEO & OVERLAY SYSTEM */}
+      {/* LIVE WALLPAPER BACKGROUND VIDEO & OVERLAY */}
       <div className="bg-video-container">
         <video
           autoPlay
@@ -321,7 +321,7 @@ export default function App() {
                 onClick={() => setShowComingSoon(true)}
                 title="Click to preview upcoming tools & features"
               >
-                🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>
+                🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>[cite: 13]
               </div>
             </div>
           </div>
