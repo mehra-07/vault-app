@@ -30,7 +30,7 @@ export default function App() {
   // BONUS SOCIAL DOWNLOADER MODAL STATES
   const [showBonusModal, setShowBonusModal] = useState(false);
   const [bonusUrl, setBonusUrl] = useState('');
-  const [bonusFormat, setBonusFormat] = useState('video'); // 'video' or 'audio'
+  const [bonusFormat, setBonusFormat] = useState('video');
   const [bonusLoading, setBonusLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,18 +113,7 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Direct Browser Download
-  const triggerSaveBlob = (blob, filename) => {
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
-  };
-
+  // Convert Decoded Audio to clean WAV blob
   const audioBufferToWav = (buffer) => {
     const numOfChan = buffer.numberOfChannels;
     const length = buffer.length * numOfChan * 2 + 44;
@@ -136,10 +125,10 @@ export default function App() {
     function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
     function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
 
-    setUint32(0x46464952); pos += 4;
+    setUint32(0x46464952); pos += 4; // RIFF
     setUint32(length - 8); pos += 4;
-    setUint32(0x45564157); pos += 4;
-    setUint32(0x20746d66); pos += 4;
+    setUint32(0x45564157); pos += 4; // WAVE
+    setUint32(0x20746d66); pos += 4; // fmt
     setUint32(16); pos += 4;
     setUint16(1); pos += 2;
     setUint16(numOfChan); pos += 2;
@@ -147,7 +136,7 @@ export default function App() {
     setUint32(sampleRate * 2 * numOfChan); pos += 4;
     setUint16(numOfChan * 2); pos += 2;
     setUint16(16); pos += 2;
-    setUint32(0x61746164); pos += 4;
+    setUint32(0x61746164); pos += 4; // data
     setUint32(length - pos - 4); pos += 4;
 
     const channels = [];
@@ -165,35 +154,65 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
+  // FAILSAFE DIRECT FORCE DOWNLOAD (Handles CORS + Cloudinary Attachment Flag)
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
 
-    try {
-      const targetUrl = getMediaUrl(downloadModalItem.url);
-      const res = await fetch(targetUrl);
-      const originalBlob = await res.blob();
-      const baseName = downloadModalItem.name.replace(/\.[^/.]+$/, '');
+    const baseName = downloadModalItem.name.replace(/\.[^/.]+$/, '');
+    const rawUrl = getMediaUrl(downloadModalItem.url);
 
+    try {
       if (format === 'video' || downloadModalItem.type !== 'video') {
-        const ext = downloadModalItem.name.split('.').pop() || 'mp4';
-        triggerSaveBlob(originalBlob, `${baseName}.${ext}`);
+        // If Cloudinary URL, inject fl_attachment to trigger instant direct download without opening tab
+        let downloadUrl = rawUrl;
+        if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
+          downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
+        }
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = downloadModalItem.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       } else if (format === 'audio') {
-        const arrayBuffer = await originalBlob.arrayBuffer();
+        // Fetch audio stream & decode
+        const response = await fetch(rawUrl, { mode: 'cors' });
+        const arrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         const wavBlob = audioBufferToWav(decodedBuffer);
-        triggerSaveBlob(wavBlob, `${baseName}_audio.wav`);
+
+        const blobUrl = window.URL.createObjectURL(wavBlob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${baseName}_audio.wav`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
       }
     } catch (err) {
-      alert('Direct download started in background or failed.');
+      console.warn('Audio blob decode failed, switching to direct audio stream fallback...', err);
+      // Fallback: If Web Audio decode has a CORS issue, trigger direct attachment link
+      let fallbackUrl = rawUrl;
+      if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
+        fallbackUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
+      }
+      const a = document.createElement('a');
+      a.href = fallbackUrl;
+      a.download = `${baseName}.${format === 'audio' ? 'wav' : 'mp4'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } finally {
       setDownloadingFormat(false);
       setDownloadModalItem(null);
     }
   };
 
-  // BONUS SOCIAL DOWNLOAD HANDLER (YT, Insta, FB, TikTok, X)
+  // BONUS SOCIAL DOWNLOAD HANDLER
   const handleBonusDownload = async (e) => {
     e.preventDefault();
     if (!bonusUrl.trim()) {
@@ -203,7 +222,6 @@ export default function App() {
 
     setBonusLoading(true);
     try {
-      // Safe Universal Multi-Platform API Gateway
       const cleanUrl = encodeURIComponent(bonusUrl.trim());
       const serviceGateway = `https://api.cobalt.tools/api/json`;
       
@@ -223,7 +241,6 @@ export default function App() {
 
       const data = await response.json();
       if (data && data.url) {
-        // Direct Download Trigger
         const downloadAnchor = document.createElement('a');
         downloadAnchor.href = data.url;
         downloadAnchor.target = '_blank';
@@ -238,12 +255,10 @@ export default function App() {
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3500);
       } else {
-        // Fallback Instant Redirection
         window.open(`https://snapinsta.app/?url=${cleanUrl}`, '_blank');
         setShowBonusModal(false);
       }
     } catch (err) {
-      // Fallback Engine
       window.open(`https://cobalt.tools/?url=${encodeURIComponent(bonusUrl.trim())}`, '_blank');
       setShowBonusModal(false);
     } finally {
@@ -407,7 +422,6 @@ export default function App() {
           <div className="logo-text">
             <h1 className="logo-title-animated">MEHRA SPACE</h1>
             <span className="logo-subtitle">Private Storage Vault</span>
-            {/* BONUS FOR YOU CLICKABLE BOX */}
             <div
               className="bonus-banner-trigger"
               onClick={() => setShowBonusModal(true)}
@@ -419,7 +433,6 @@ export default function App() {
         </div>
 
         <div className="header-actions">
-          {/* Light / Dark Mode Toggle */}
           <button
             className="theme-toggle-btn"
             onClick={toggleTheme}
