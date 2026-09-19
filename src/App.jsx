@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-// Aapka live Render backend URL
+// Live Render backend URL
 const SERVER_URL = 'https://vault-app-eqhu.onrender.com';
 const API_BASE = `${SERVER_URL}/api/vault`;
 const AUTH_BASE = `${SERVER_URL}/api/auth`;
@@ -18,7 +18,6 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [activeMedia, setActiveMedia] = useState(null);
 
-  // Theme: light | dark
   const [theme, setTheme] = useState(localStorage.getItem('vaultTheme') || 'light');
 
   const [uploadMethod, setUploadMethod] = useState('single');
@@ -34,7 +33,6 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [zipping, setZipping] = useState(false);
 
-  // Database se user specific items fetch karna
   const fetchVaultItems = useCallback(async (username) => {
     if (!username) return;
     try {
@@ -49,7 +47,6 @@ export default function App() {
     }
   }, []);
 
-  // Login rehne par automatically database se items load karna
   useEffect(() => {
     if (user) {
       fetchVaultItems(user);
@@ -74,7 +71,6 @@ export default function App() {
       });
       const data = await res.json();
 
-      // FIXED: Status check aur user field verification
       if (!res.ok || !data.user) {
         setAuthError(data.message || 'Auth Error');
         return;
@@ -98,11 +94,9 @@ export default function App() {
   const existingFolders = Array.from(new Set(items.map(i => i.folder || 'General')));
   const finalFolderName = folderMode === 'new' ? (newFolderName.trim() || 'General') : chosenFolder;
 
-  // Media & Links ko Cloudinary aur MongoDB me store karna
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Google Drive Link Save Karna
     if (uploadMethod === 'drive') {
       if (!driveUrl) return alert('Google Drive Link zaroori hai.');
       try {
@@ -128,7 +122,6 @@ export default function App() {
       return;
     }
 
-    // 2. Local Files ya ZIP upload karna
     if (!files || files.length === 0) return alert('Pehle koi file choose karein!');
 
     setUploading(true);
@@ -137,7 +130,6 @@ export default function App() {
     try {
       let uploadFileList = [...files];
 
-      // Agar ZIP file hai toh extract karke files upload karein
       if (uploadMethod === 'zip') {
         const zipFile = files[0];
         const jszip = new JSZip();
@@ -166,7 +158,6 @@ export default function App() {
         }
       }
 
-      // Backend API par FormData bhejna
       const formData = new FormData();
       uploadFileList.forEach(file => {
         formData.append('files', file);
@@ -189,8 +180,8 @@ export default function App() {
         if (uploadedData[0]) setActiveMedia(uploadedData[0]);
         alert(`${uploadedData.length} files successfully cloud vault me upload ho gayi!`);
       } else {
-        // Single fallback item
         setItems(prev => [uploadedData, ...prev]);
+        if (uploadedData) setActiveMedia(uploadedData);
       }
 
       setFiles([]);
@@ -203,7 +194,23 @@ export default function App() {
     }
   };
 
-  // Bulk ZIP Download
+  const getMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) return url;
+    return `${SERVER_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const handleDirectDownload = async (item) => {
+    try {
+      const fileUrl = getMediaUrl(item.url);
+      const res = await fetch(fileUrl);
+      const blob = await res.blob();
+      saveAs(blob, item.name || 'vault-media');
+    } catch {
+      window.open(getMediaUrl(item.url), '_blank');
+    }
+  };
+
   const handleDownloadZip = async (folderTarget = 'ALL') => {
     const listToZip = folderTarget === 'ALL'
       ? items.filter(i => i.type !== 'link/drive')
@@ -218,15 +225,15 @@ export default function App() {
 
     try {
       for (const item of listToZip) {
-        const fileUrl = item.url.startsWith('http') ? item.url : `${SERVER_URL}${item.url}`;
+        const fileUrl = getMediaUrl(item.url);
         const res = await fetch(fileUrl);
         const blobData = await res.blob();
 
         const folderName = item.folder || 'General';
         if (folderTarget === 'ALL') {
-          zip.folder(folderName).file(item.name, blobData);
+          zip.folder(folderName).file(item.name || 'media', blobData);
         } else {
-          zip.file(item.name, blobData);
+          zip.file(item.name || 'media', blobData);
         }
       }
 
@@ -239,7 +246,6 @@ export default function App() {
     setZipping(false);
   };
 
-  // Database se Item Delete karna
   const handleDelete = async (id) => {
     if (!window.confirm('Kya aap ise vault se delete karna chahte hain?')) return;
     try {
@@ -256,20 +262,11 @@ export default function App() {
     : items.filter(i => (i.folder || 'General') === selectedFolderTab)
   ).filter(i => (i.name || '').toLowerCase().includes(search.toLowerCase()));
 
-  const firstPhoto = items.find(i => i.type?.includes('image') || i.url?.match(/\.(jpg|jpeg|png|webp)$/i));
-  const firstVideo = items.find(i => i.type?.includes('video') || i.url?.match(/\.(mp4|mov|webm)$/i));
-
-  const bgMedia = activeMedia || firstPhoto || firstVideo || null;
-  const isBgPhoto = bgMedia && (bgMedia.type?.includes('image') || bgMedia.url?.match(/\.(jpg|jpeg|png|webp)$/i));
+  const bgMedia = activeMedia || items[0] || null;
   const isBgVideo = bgMedia && (bgMedia.type?.includes('video') || bgMedia.url?.match(/\.(mp4|mov|webm)$/i));
+  const isBgPhoto = bgMedia && !isBgVideo && (bgMedia.type?.includes('image') || bgMedia.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i));
 
   const isDark = theme === 'dark';
-
-  const getMediaUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http') || url.startsWith('blob:')) return url;
-    return `${SERVER_URL}${url}`;
-  };
 
   if (!user) {
     return (
@@ -368,23 +365,10 @@ export default function App() {
       overflowX: 'hidden'
     }}>
 
-      {/* Background Media */}
-      {bgMedia ? (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1, overflow: 'hidden' }}>
-          {isBgPhoto && (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                backgroundImage: `url(${getMediaUrl(bgMedia.url)})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: isDark ? 'brightness(0.45)' : 'brightness(0.92)'
-              }}
-            />
-          )}
-
-          {isBgVideo && (
+      {/* Background Media Container */}
+      {bgMedia && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+          {isBgVideo ? (
             <video
               key={bgMedia.url}
               src={getMediaUrl(bgMedia.url)}
@@ -396,11 +380,21 @@ export default function App() {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                filter: isDark ? 'brightness(0.4)' : 'brightness(0.88)'
+                filter: isDark ? 'brightness(0.35)' : 'brightness(0.85)'
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${getMediaUrl(bgMedia.url)})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: isDark ? 'brightness(0.35)' : 'brightness(0.9)'
               }}
             />
           )}
-
           <div style={{
             position: 'absolute',
             top: 0,
@@ -408,20 +402,10 @@ export default function App() {
             width: '100%',
             height: '100%',
             background: isDark
-              ? 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 100%)'
-              : 'linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.55) 100%)'
+              ? 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.85) 100%)'
+              : 'linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.6) 100%)'
           }} />
         </div>
-      ) : (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 1,
-          backgroundColor: isDark ? '#050507' : '#ffffff'
-        }} />
       )}
 
       {/* Foreground Content */}
@@ -447,8 +431,7 @@ export default function App() {
                 borderRadius: '24px',
                 cursor: 'pointer',
                 fontWeight: '700',
-                fontSize: '0.85rem',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                fontSize: '0.85rem'
               }}
             >
               {isDark ? '☀️ Light Mode' : '🌙 Dark Mode'}
@@ -483,7 +466,6 @@ export default function App() {
             Raw 4K videos aur high-res photography upload karein, organize karein aur background cinematic mode set karein.
           </p>
 
-          {/* Upload Box */}
           <div style={{
             background: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.85)',
             backdropFilter: 'blur(14px)',
@@ -627,7 +609,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Search & Bulk ZIP Download */}
         <div style={{ display: 'flex', gap: '15px', margin: '30px 0 20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
@@ -666,7 +647,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Folder Tabs */}
         <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
@@ -724,7 +704,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Media Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
           {displayedItems.length === 0 ? (
             <div style={{ color: isDark ? '#94a3b8' : '#64748b', gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
@@ -776,10 +755,10 @@ export default function App() {
 
                   <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isDark ? '#fff' : '#0f172a' }}>
-                      {item.name}
+                      {item.name || 'Untitled File'}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                      Folder: <strong>{item.folder}</strong>
+                      Folder: <strong>{item.folder || 'General'}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9', paddingTop: '8px' }}>
                       {itemIsDrive ? (
@@ -787,9 +766,9 @@ export default function App() {
                           Open Drive ↗
                         </a>
                       ) : (
-                        <a href={getMediaUrl(item.url)} target="_blank" rel="noopener noreferrer" download={item.name} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}>
+                        <button onClick={() => handleDirectDownload(item)} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', padding: 0 }}>
                           Download
-                        </a>
+                        </button>
                       )}
                       <button onClick={() => handleDelete(item._id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>
                         Delete
