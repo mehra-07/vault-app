@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-// Live Render backend URL
 const SERVER_URL = 'https://vault-app-eqhu.onrender.com';
 const API_BASE = `${SERVER_URL}/api/vault`;
 const AUTH_BASE = `${SERVER_URL}/api/auth`;
@@ -18,9 +17,8 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [activeMedia, setActiveMedia] = useState(null);
 
-  // Video Modal Player State
-  const [playingVideo, setPlayingVideo] = useState(null); // Item object
-  const [playerSize, setPlayerSize] = useState('full'); // 'full' | 'small'
+  const [playingVideo, setPlayingVideo] = useState(null);
+  const [playerSize, setPlayerSize] = useState('full');
   const [volume, setVolume] = useState(1);
   const videoPlayerRef = useRef(null);
 
@@ -207,23 +205,20 @@ export default function App() {
     return `${SERVER_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Direct Blob Download with proper extension fallback
   const handleDirectDownload = async (item) => {
     try {
       const fileUrl = getMediaUrl(item.url);
       const res = await fetch(fileUrl);
-      if (!res.ok) throw new Error('File server par nahi mili.');
+      if (!res.ok) throw new Error('File nahi mili');
       const blob = await res.blob();
-      
-      // Determine file extension
-      let filename = item.name || 'media_vault';
-      if (!filename.includes('.')) {
+      let fname = item.name || 'media_vault';
+      if (!fname.includes('.')) {
         const isVid = item.type?.includes('video') || item.url?.match(/\.(mp4|mov|webm)$/i);
-        filename += isVid ? '.mp4' : '.jpg';
+        fname += isVid ? '.mp4' : '.jpg';
       }
-      saveAs(blob, filename);
+      saveAs(blob, fname);
     } catch {
-      alert('File load nahi ho saki ya expire ho chuki hai.');
+      window.open(getMediaUrl(item.url), '_blank');
     }
   };
 
@@ -278,7 +273,6 @@ export default function App() {
     }
   };
 
-  // Video Player Control Handlers
   const handleSkip = (seconds) => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.currentTime += seconds;
@@ -443,7 +437,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Video Modal Player (Full Screen ya Small Window) */}
+      {/* Video Modal Player */}
       {playingVideo && (
         <div style={{
           position: 'fixed',
@@ -473,7 +467,6 @@ export default function App() {
             gap: '8px'
           })
         }}>
-          {/* Header Controls */}
           <div style={{ width: playerSize === 'full' ? '90%' : '100%', maxWidth: '900px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontWeight: '700', fontSize: '0.9rem', color: playerSize === 'full' || isDark ? '#fff' : '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               🎥 {playingVideo.name || 'Video Player'}
@@ -494,7 +487,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Video Container */}
           <div style={{ position: 'relative', width: playerSize === 'full' ? '90%' : '100%', maxWidth: playerSize === 'full' ? '900px' : 'none', maxHeight: playerSize === 'full' ? '70vh' : '220px', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
             <video
               ref={videoPlayerRef}
@@ -505,7 +497,6 @@ export default function App() {
             />
           </div>
 
-          {/* Extra Custom Controllers: 10s Backward / Forward & Volume */}
           <div style={{ width: playerSize === 'full' ? '90%' : '100%', maxWidth: '900px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
             <button
               onClick={() => handleSkip(-10)}
@@ -888,7 +879,6 @@ export default function App() {
                       Folder: <strong>{item.folder || 'General'}</strong>
                     </div>
                     
-                    {/* Action buttons: Play, Download, Delete */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9', paddingTop: '8px', gap: '8px' }}>
                       {itemIsVideo && (
                         <button
