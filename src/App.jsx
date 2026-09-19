@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -17,6 +17,12 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [activeMedia, setActiveMedia] = useState(null);
+
+  // Video Modal Player State
+  const [playingVideo, setPlayingVideo] = useState(null); // Item object
+  const [playerSize, setPlayerSize] = useState('full'); // 'full' | 'small'
+  const [volume, setVolume] = useState(1);
+  const videoPlayerRef = useRef(null);
 
   const [theme, setTheme] = useState(localStorage.getItem('vaultTheme') || 'light');
 
@@ -89,6 +95,7 @@ export default function App() {
     setUser(null);
     setItems([]);
     setActiveMedia(null);
+    setPlayingVideo(null);
   };
 
   const existingFolders = Array.from(new Set(items.map(i => i.folder || 'General')));
@@ -200,14 +207,23 @@ export default function App() {
     return `${SERVER_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
+  // Direct Blob Download with proper extension fallback
   const handleDirectDownload = async (item) => {
     try {
       const fileUrl = getMediaUrl(item.url);
       const res = await fetch(fileUrl);
+      if (!res.ok) throw new Error('File server par nahi mili.');
       const blob = await res.blob();
-      saveAs(blob, item.name || 'vault-media');
+      
+      // Determine file extension
+      let filename = item.name || 'media_vault';
+      if (!filename.includes('.')) {
+        const isVid = item.type?.includes('video') || item.url?.match(/\.(mp4|mov|webm)$/i);
+        filename += isVid ? '.mp4' : '.jpg';
+      }
+      saveAs(blob, filename);
     } catch {
-      window.open(getMediaUrl(item.url), '_blank');
+      alert('File load nahi ho saki ya expire ho chuki hai.');
     }
   };
 
@@ -227,13 +243,17 @@ export default function App() {
       for (const item of listToZip) {
         const fileUrl = getMediaUrl(item.url);
         const res = await fetch(fileUrl);
-        const blobData = await res.blob();
+        if (res.ok) {
+          const blobData = await res.blob();
+          const folderName = item.folder || 'General';
+          let fname = item.name || 'media';
+          if (!fname.includes('.')) fname += item.type?.includes('video') ? '.mp4' : '.jpg';
 
-        const folderName = item.folder || 'General';
-        if (folderTarget === 'ALL') {
-          zip.folder(folderName).file(item.name || 'media', blobData);
-        } else {
-          zip.file(item.name || 'media', blobData);
+          if (folderTarget === 'ALL') {
+            zip.folder(folderName).file(fname, blobData);
+          } else {
+            zip.file(fname, blobData);
+          }
         }
       }
 
@@ -252,8 +272,23 @@ export default function App() {
       await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
       setItems(prev => prev.filter(i => i._id !== id));
       if (activeMedia && activeMedia._id === id) setActiveMedia(null);
+      if (playingVideo && playingVideo._id === id) setPlayingVideo(null);
     } catch (err) {
       alert('Delete fail: ' + err.message);
+    }
+  };
+
+  // Video Player Control Handlers
+  const handleSkip = (seconds) => {
+    if (videoPlayerRef.current) {
+      videoPlayerRef.current.currentTime += seconds;
+    }
+  };
+
+  const handleVolumeChange = (newVol) => {
+    setVolume(newVol);
+    if (videoPlayerRef.current) {
+      videoPlayerRef.current.volume = newVol;
     }
   };
 
@@ -405,6 +440,98 @@ export default function App() {
               ? 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.85) 100%)'
               : 'linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.6) 100%)'
           }} />
+        </div>
+      )}
+
+      {/* Video Modal Player (Full Screen ya Small Window) */}
+      {playingVideo && (
+        <div style={{
+          position: 'fixed',
+          zIndex: 9999,
+          ...(playerSize === 'full' ? {
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '20px'
+          } : {
+            bottom: '20px',
+            right: '20px',
+            width: '380px',
+            background: isDark ? '#18181b' : '#ffffff',
+            borderRadius: '12px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          })
+        }}>
+          {/* Header Controls */}
+          <div style={{ width: playerSize === 'full' ? '90%' : '100%', maxWidth: '900px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontWeight: '700', fontSize: '0.9rem', color: playerSize === 'full' || isDark ? '#fff' : '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              🎥 {playingVideo.name || 'Video Player'}
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setPlayerSize(prev => prev === 'full' ? 'small' : 'full')}
+                style={{ background: '#38bdf8', color: '#000', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+              >
+                {playerSize === 'full' ? '🗗 Small' : '🗖 Full'}
+              </button>
+              <button
+                onClick={() => setPlayingVideo(null)}
+                style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+
+          {/* Video Container */}
+          <div style={{ position: 'relative', width: playerSize === 'full' ? '90%' : '100%', maxWidth: playerSize === 'full' ? '900px' : 'none', maxHeight: playerSize === 'full' ? '70vh' : '220px', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
+            <video
+              ref={videoPlayerRef}
+              src={getMediaUrl(playingVideo.url)}
+              controls
+              autoPlay
+              style={{ width: '100%', height: '100%', maxHeight: playerSize === 'full' ? '70vh' : '220px', objectFit: 'contain' }}
+            />
+          </div>
+
+          {/* Extra Custom Controllers: 10s Backward / Forward & Volume */}
+          <div style={{ width: playerSize === 'full' ? '90%' : '100%', maxWidth: '900px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
+            <button
+              onClick={() => handleSkip(-10)}
+              style={{ background: isDark || playerSize === 'full' ? 'rgba(255,255,255,0.15)' : '#e2e8f0', color: playerSize === 'full' || isDark ? '#fff' : '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}
+            >
+              ⏪ -10s
+            </button>
+            <button
+              onClick={() => handleSkip(10)}
+              style={{ background: isDark || playerSize === 'full' ? 'rgba(255,255,255,0.15)' : '#e2e8f0', color: playerSize === 'full' || isDark ? '#fff' : '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}
+            >
+              +10s ⏩
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.8rem', color: playerSize === 'full' || isDark ? '#fff' : '#000' }}>🔊</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={volume}
+                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                style={{ width: '80px', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -760,7 +887,18 @@ export default function App() {
                     <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
                       Folder: <strong>{item.folder || 'General'}</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9', paddingTop: '8px' }}>
+                    
+                    {/* Action buttons: Play, Download, Delete */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9', paddingTop: '8px', gap: '8px' }}>
+                      {itemIsVideo && (
+                        <button
+                          onClick={() => setPlayingVideo(item)}
+                          style={{ background: '#38bdf8', color: '#000', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          ▶ Play
+                        </button>
+                      )}
+
                       {itemIsDrive ? (
                         <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}>
                           Open Drive ↗
@@ -770,7 +908,8 @@ export default function App() {
                           Download
                         </button>
                       )}
-                      <button onClick={() => handleDelete(item._id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>
+
+                      <button onClick={() => handleDelete(item._id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', padding: 0 }}>
                         Delete
                       </button>
                     </div>
