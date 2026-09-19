@@ -405,6 +405,8 @@ export default function App() {
               loop
               muted
               playsInline
+              crossOrigin="anonymous"
+              preload="auto"
               style={{
                 width: '100%',
                 height: '100%',
@@ -490,9 +492,13 @@ export default function App() {
           <div style={{ position: 'relative', width: playerSize === 'full' ? '90%' : '100%', maxWidth: playerSize === 'full' ? '900px' : 'none', maxHeight: playerSize === 'full' ? '70vh' : '220px', borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
             <video
               ref={videoPlayerRef}
+              key={playingVideo.url}
               src={getMediaUrl(playingVideo.url)}
               controls
               autoPlay
+              playsInline
+              crossOrigin="anonymous"
+              preload="auto"
               style={{ width: '100%', height: '100%', maxHeight: playerSize === 'full' ? '70vh' : '220px', objectFit: 'contain' }}
             />
           </div>
@@ -859,9 +865,20 @@ export default function App() {
                         <span style={{ fontSize: '0.8rem', color: '#38bdf8' }}>Drive Link</span>
                       </div>
                     ) : itemIsVideo ? (
-                      <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                      <video
+                        src={getMediaUrl(item.url)}
+                        crossOrigin="anonymous"
+                        preload="metadata"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        muted
+                      />
                     ) : (
-                      <img src={getMediaUrl(item.url)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img
+                        src={getMediaUrl(item.url)}
+                        crossOrigin="anonymous"
+                        alt={item.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
                     )}
 
                     {!itemIsDrive && (
