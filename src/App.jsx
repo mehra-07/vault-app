@@ -7,15 +7,19 @@ export default function App() {
   const [user, setUser] = useState(localStorage.getItem('vault_user') || '');
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ username: '', password: '' });
-  
+
   const [items, setItems] = useState([]);
   const [folder, setFolder] = useState('Videos');
   const [uploadMode, setUploadMode] = useState('file'); // 'file', 'zip', 'drive'
   const [selectedFile, setSelectedFile] = useState(null);
   const [driveUrl, setDriveUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState('');
   
+  // Upload Animation States
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showToast, setShowToast] = useState(false);
+  const [toastText, setToastText] = useState('');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeMedia, setActiveMedia] = useState(null);
@@ -66,69 +70,55 @@ export default function App() {
     setItems([]);
   };
 
+  // Upload Simulation & Request
   const handleUpload = async (e) => {
     e.preventDefault();
+
+    if (uploadMode === 'file' && !selectedFile) {
+      alert('Please select a file first');
+      return;
+    }
+    if (uploadMode === 'zip' && !selectedFile) {
+      alert('Please select a .zip archive first');
+      return;
+    }
+    if (uploadMode === 'drive' && !driveUrl) {
+      alert('Please paste a Google Drive URL');
+      return;
+    }
+
     setUploading(true);
-    setStatusMsg('');
+    setProgress(15);
+
+    // Smooth Progress Bar ticker
+    const progressTimer = setInterval(() => {
+      setProgress((prev) => (prev < 90 ? prev + Math.floor(Math.random() * 10) + 5 : 90));
+    }, 200);
 
     try {
+      let res;
       if (uploadMode === 'file') {
-        if (!selectedFile) {
-          alert('Please select a file to upload');
-          setUploading(false);
-          return;
-        }
         const formData = new FormData();
         formData.append('files', selectedFile);
         formData.append('folder', folder || 'General');
         formData.append('username', user);
 
-        const res = await fetch(`${API_BASE}/api/vault/upload`, {
+        res = await fetch(`${API_BASE}/api/vault/upload`, {
           method: 'POST',
           body: formData,
         });
-        const data = await res.json();
-        if (res.ok) {
-          setSelectedFile(null);
-          const inp = document.getElementById('media-upload-input');
-          if (inp) inp.value = '';
-          setStatusMsg('✅ Upload successful!');
-          fetchItems();
-        } else {
-          alert(data.error || 'Upload failed');
-        }
       } else if (uploadMode === 'zip') {
-        if (!selectedFile) {
-          alert('Please select a .zip file');
-          setUploading(false);
-          return;
-        }
         const formData = new FormData();
         formData.append('zipfile', selectedFile);
         formData.append('folder', folder || 'General');
         formData.append('username', user);
 
-        const res = await fetch(`${API_BASE}/api/vault/upload-zip`, {
+        res = await fetch(`${API_BASE}/api/vault/upload-zip`, {
           method: 'POST',
           body: formData,
         });
-        const data = await res.json();
-        if (res.ok) {
-          setSelectedFile(null);
-          const inp = document.getElementById('media-upload-input');
-          if (inp) inp.value = '';
-          setStatusMsg('✅ ZIP extracted & uploaded successfully!');
-          fetchItems();
-        } else {
-          alert(data.error || 'ZIP upload failed');
-        }
       } else if (uploadMode === 'drive') {
-        if (!driveUrl) {
-          alert('Please enter a Google Drive link');
-          setUploading(false);
-          return;
-        }
-        const res = await fetch(`${API_BASE}/api/vault/drive-download`, {
+        res = await fetch(`${API_BASE}/api/vault/drive-download`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -137,19 +127,44 @@ export default function App() {
             username: user,
           }),
         });
-        const data = await res.json();
-        if (res.ok) {
+      }
+
+      clearInterval(progressTimer);
+      setProgress(100);
+
+      const data = await res.json();
+      if (res.ok) {
+        setTimeout(() => {
+          setUploading(false);
+          setProgress(0);
+          setSelectedFile(null);
           setDriveUrl('');
-          setStatusMsg('✅ Google Drive media imported!');
+          const inp = document.getElementById('media-upload-input');
+          if (inp) inp.value = '';
+
+          // Show Success Toast
+          setToastText(
+            uploadMode === 'file'
+              ? 'Asset Uploaded Successfully!'
+              : uploadMode === 'zip'
+              ? 'ZIP Extracted & Assets Stored!'
+              : 'Google Drive Media Synced!'
+          );
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3500);
+
           fetchItems();
-        } else {
-          alert(data.error || 'Drive download failed');
-        }
+        }, 500);
+      } else {
+        setUploading(false);
+        setProgress(0);
+        alert(data.error || 'Upload failed');
       }
     } catch (err) {
-      alert('Upload failed: Server connection error');
-    } finally {
+      clearInterval(progressTimer);
       setUploading(false);
+      setProgress(0);
+      alert('Upload failed: Server connection error');
     }
   };
 
@@ -233,7 +248,7 @@ export default function App() {
           <span className="logo-icon">🪐</span>
           <div className="logo-text">
             <h1>MEHRA SPACE</h1>
-            <span>Private Storage</span>
+            <span>Private Storage Vault</span>
           </div>
         </div>
         <div className="user-profile-badge">
@@ -255,51 +270,57 @@ export default function App() {
         </div>
         <div className="stat-card">
           <div className="stat-info">
-            <p>Videos</p>
+            <p>Videos Stored</p>
             <h2 style={{ color: 'var(--accent-cyan)' }}>{videoCount}</h2>
           </div>
           <div className="stat-icon">🎬</div>
         </div>
         <div className="stat-card">
           <div className="stat-info">
-            <p>Images</p>
+            <p>Images Stored</p>
             <h2 style={{ color: 'var(--accent-blue)' }}>{imageCount}</h2>
           </div>
           <div className="stat-icon">📸</div>
         </div>
       </section>
 
-      {/* Upload Zone with Mode Tabs */}
+      {/* Upload Zone */}
       <section className="upload-card">
-        <div className="upload-mode-tabs">
-          <button
-            type="button"
-            className={`mode-tab-btn ${uploadMode === 'file' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('file'); setSelectedFile(null); setStatusMsg(''); }}
+        {/* Interactive Tilt & Mirror Cards */}
+        <div className="upload-methods-grid">
+          <div
+            className={`method-card ${uploadMode === 'file' ? 'active' : ''}`}
+            onClick={() => { setUploadMode('file'); setSelectedFile(null); }}
           >
-            📄 One by One (File)
-          </button>
-          <button
-            type="button"
-            className={`mode-tab-btn ${uploadMode === 'zip' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('zip'); setSelectedFile(null); setStatusMsg(''); }}
+            <span className="method-icon">📄</span>
+            <div className="method-title">Direct File</div>
+            <div className="method-subtitle">Single / multiple media files</div>
+          </div>
+
+          <div
+            className={`method-card ${uploadMode === 'zip' ? 'active' : ''}`}
+            onClick={() => { setUploadMode('zip'); setSelectedFile(null); }}
           >
-            🗜️ ZIP Archive (Auto-Extract)
-          </button>
-          <button
-            type="button"
-            className={`mode-tab-btn ${uploadMode === 'drive' ? 'active' : ''}`}
-            onClick={() => { setUploadMode('drive'); setSelectedFile(null); setStatusMsg(''); }}
+            <span className="method-icon">🗜️</span>
+            <div className="method-title">ZIP Archive</div>
+            <div className="method-subtitle">Auto-extract bulk media</div>
+          </div>
+
+          <div
+            className={`method-card ${uploadMode === 'drive' ? 'active' : ''}`}
+            onClick={() => { setUploadMode('drive'); setSelectedFile(null); }}
           >
-            ☁️ Google Drive Link
-          </button>
+            <span className="method-icon">☁️</span>
+            <div className="method-title">Google Drive</div>
+            <div className="method-subtitle">Import public folder/files</div>
+          </div>
         </div>
 
         <form className="upload-form" onSubmit={handleUpload}>
           <input
             type="text"
             className="input-box"
-            placeholder="Folder (e.g. Videos, Personal)"
+            placeholder="Target Folder (e.g. Videos, Personal)"
             value={folder}
             onChange={(e) => setFolder(e.target.value)}
           />
@@ -329,21 +350,32 @@ export default function App() {
             <input
               type="url"
               className="input-box"
-              placeholder="Paste public Google Drive file/folder URL..."
+              placeholder="Paste public Google Drive share link..."
               value={driveUrl}
               onChange={(e) => setDriveUrl(e.target.value)}
             />
           )}
 
           <button type="submit" className="btn-upload-submit" disabled={uploading}>
-            {uploading ? 'Processing...' : '⚡ Upload'}
+            {uploading ? '⚡ Uploading...' : '⚡ Upload Now'}
           </button>
         </form>
 
-        {statusMsg && <p className="status-badge-msg">{statusMsg}</p>}
+        {/* Holographic 100% Progress Bar */}
+        {uploading && (
+          <div className="progress-container">
+            <div className="progress-header">
+              <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD...</span>
+              <span style={{ color: 'white' }}>{progress}%</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* Controls & Search */}
+      {/* Controls Bar */}
       <section className="controls-bar">
         <div className="filter-pills">
           <button
@@ -377,9 +409,9 @@ export default function App() {
       {/* Gallery Cards */}
       {filteredItems.length === 0 ? (
         <div className="empty-state">
-          <p style={{ fontSize: '3rem' }}>🪐</p>
-          <h4>Space is empty</h4>
-          <p>Upload files, a ZIP archive, or import via Drive above.</p>
+          <p style={{ fontSize: '3.5rem' }}>🪐</p>
+          <h4>No assets in this space</h4>
+          <p>Choose an upload method above to add videos and pictures.</p>
         </div>
       ) : (
         <div className="media-grid">
@@ -441,7 +473,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Media Player Modal */}
+      {/* Fullscreen Theatre Modal */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
@@ -472,6 +504,17 @@ export default function App() {
                 />
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Success Popup Toast */}
+      {showToast && (
+        <div className="toast-popup">
+          <span className="toast-icon">🚀</span>
+          <div className="toast-body">
+            <h4>Uploaded Successfully!</h4>
+            <p>{toastText}</p>
           </div>
         </div>
       )}
