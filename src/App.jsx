@@ -23,9 +23,12 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Media Download Choice States
+  // Media Download States
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
+
+  // COMING SOON MODAL STATE
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -148,7 +151,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // DIRECT VAULT MEDIA DOWNLOAD (NO NEW TABS, DIRECT TO DEVICE)
+  // DIRECT VAULT MEDIA DOWNLOAD (NO NEW TABS)
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -358,6 +361,15 @@ export default function App() {
           <div className="logo-text">
             <h1 className="logo-title-animated">MEHRA SPACE</h1>
             <span className="logo-subtitle">Private Storage Vault</span>
+            
+            {/* COMING SOON LAB TRIGGER BADGE */}
+            <div
+              className="coming-soon-trigger"
+              onClick={() => setShowComingSoon(true)}
+              title="Click to preview upcoming tools & features"
+            >
+              🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>
+            </div>
           </div>
         </div>
 
@@ -690,6 +702,60 @@ export default function App() {
                 Cancel
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================= */}
+      {/* COMING SOON LAB SHOWCASE MODAL (EXACTLY 2 CARDS) */}
+      {/* ======================================================= */}
+      {showComingSoon && (
+        <div className="modal-overlay" onClick={() => setShowComingSoon(false)}>
+          <div className="cs-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-cs-modal" onClick={() => setShowComingSoon(false)}>
+              ✕
+            </button>
+            
+            <div className="cs-header">
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.4rem' }}>⚡</div>
+              <h3>MEHRA SPACE LAB</h3>
+              <p>Next-Gen High Speed Web Tools Under Active Development</p>
+            </div>
+
+            {/* 2 PROMINENT CARDS GRID */}
+            <div className="cs-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+              
+              {/* CARD 1: PDF & IMAGE STUDIO */}
+              <div className="cs-card">
+                <div className="cs-card-icon">📑</div>
+                <h4 className="cs-card-title">PDF & Image Studio</h4>
+                <p className="cs-card-desc">
+                  Seamlessly convert images to PDF documents, extract high-resolution JPGs from PDFs, and adjust or resize image dimensions instantly.
+                </p>
+                <div className="cs-tags">
+                  <span className="cs-tag">JPG to PDF</span>
+                  <span className="cs-tag">PDF to JPG</span>
+                  <span className="cs-tag">Image Resizer</span>
+                </div>
+                <div className="cs-status-pill">🔒 Coming Soon</div>
+              </div>
+
+              {/* CARD 2: UNIVERSAL SOCIAL EXTRACTOR */}
+              <div className="cs-card">
+                <div className="cs-card-icon">🎬</div>
+                <h4 className="cs-card-title">Universal Social Extractor</h4>
+                <p className="cs-card-desc">
+                  High-speed lossless media downloader for YouTube, Instagram Reels, Facebook & TikTok links into clean video or audio files.
+                </p>
+                <div className="cs-tags">
+                  <span className="cs-tag">YouTube / Insta</span>
+                  <span className="cs-tag">Video (MP4)</span>
+                  <span className="cs-tag">Audio (MP3)</span>
+                </div>
+                <div className="cs-status-pill">🔒 Coming Soon</div>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
