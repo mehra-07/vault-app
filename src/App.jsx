@@ -96,7 +96,7 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this media?')) return;
+    if (!window.confirm('Delete this permanently?')) return;
     try {
       const res = await fetch(`${API_BASE}/api/vault/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -128,15 +128,12 @@ export default function App() {
     return (
       <div className="auth-wrapper">
         <div className="auth-card">
-          <div className="logo-badge" style={{ marginBottom: '1.5rem' }}>
-            <span className="logo-icon">⚡</span>
+          <div className="logo-badge" style={{ marginBottom: '2rem', justifyContent: 'center' }}>
+            <span className="logo-icon">🪐</span>
             <div className="logo-text">
-              <h1>APERTURE VAULT</h1>
-              <span>Cloud Media Storage</span>
+              <h1 style={{ letterSpacing: '2px', fontSize: '1.8rem' }}>MEHRA SPACE</h1>
             </div>
           </div>
-          <h2 className="auth-title">{isLoginView ? 'Welcome Back' : 'Create Account'}</h2>
-          <p className="auth-desc">Secure cloud synchronization for your personal assets</p>
           <form className="auth-form" onSubmit={handleAuth}>
             <input
               type="text"
@@ -155,13 +152,13 @@ export default function App() {
               required
             />
             <button type="submit" className="btn-auth-submit">
-              {isLoginView ? 'Access Vault →' : 'Register Vault →'}
+              {isLoginView ? 'Enter Space →' : 'Create Space →'}
             </button>
           </form>
           <p className="auth-toggle">
-            {isLoginView ? "Don't have an account?" : 'Already have an account?'}{' '}
+            {isLoginView ? "Need access?" : 'Already registered?'}{' '}
             <span onClick={() => setIsLoginView(!isLoginView)}>
-              {isLoginView ? 'Sign up' : 'Login'}
+              {isLoginView ? 'Register' : 'Login'}
             </span>
           </p>
         </div>
@@ -174,10 +171,10 @@ export default function App() {
       {/* Top Header */}
       <header className="vault-header">
         <div className="logo-badge">
-          <span className="logo-icon">⚡</span>
+          <span className="logo-icon">🪐</span>
           <div className="logo-text">
-            <h1>APERTURE VAULT</h1>
-            <span>Protected Cloud Node</span>
+            <h1>MEHRA SPACE</h1>
+            <span>Private Storage</span>
           </div>
         </div>
         <div className="user-profile-badge">
@@ -199,14 +196,14 @@ export default function App() {
         </div>
         <div className="stat-card">
           <div className="stat-info">
-            <p>Videos Stored</p>
+            <p>Videos</p>
             <h2 style={{ color: 'var(--accent-cyan)' }}>{videoCount}</h2>
           </div>
           <div className="stat-icon">🎬</div>
         </div>
         <div className="stat-card">
           <div className="stat-info">
-            <p>Photos & Images</p>
+            <p>Images</p>
             <h2 style={{ color: 'var(--accent-blue)' }}>{imageCount}</h2>
           </div>
           <div className="stat-icon">📸</div>
@@ -215,15 +212,11 @@ export default function App() {
 
       {/* Upload Zone */}
       <section className="upload-card">
-        <div className="upload-header">
-          <h3>Quick Asset Upload</h3>
-          <p>Drop your videos and high-res media directly to your secure cloud</p>
-        </div>
         <form className="upload-form" onSubmit={handleUpload}>
           <input
             type="text"
             className="input-box"
-            placeholder="Folder name (e.g. Videos, Travel, Personal)"
+            placeholder="Folder (e.g. Videos, Personal)"
             value={folder}
             onChange={(e) => setFolder(e.target.value)}
           />
@@ -235,7 +228,7 @@ export default function App() {
             />
           </div>
           <button type="submit" className="btn-upload-submit" disabled={uploading}>
-            {uploading ? 'Uploading...' : '⚡ Upload Asset'}
+            {uploading ? 'Uploading...' : '⚡ Upload'}
           </button>
         </form>
       </section>
@@ -247,24 +240,24 @@ export default function App() {
             className={`pill-btn ${activeFilter === 'all' ? 'active' : ''}`}
             onClick={() => setActiveFilter('all')}
           >
-            All Assets ({items.length})
+            All ({items.length})
           </button>
           <button
             className={`pill-btn ${activeFilter === 'video' ? 'active' : ''}`}
             onClick={() => setActiveFilter('video')}
           >
-            🎬 Videos ({videoCount})
+            Videos ({videoCount})
           </button>
           <button
             className={`pill-btn ${activeFilter === 'image' ? 'active' : ''}`}
             onClick={() => setActiveFilter('image')}
           >
-            📸 Photos ({imageCount})
+            Images ({imageCount})
           </button>
         </div>
         <input
           type="text"
-          placeholder="🔍 Search by name or folder..."
+          placeholder="🔍 Search..."
           className="input-box search-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -274,9 +267,9 @@ export default function App() {
       {/* Gallery Cards */}
       {filteredItems.length === 0 ? (
         <div className="empty-state">
-          <p style={{ fontSize: '3rem' }}>📂</p>
-          <h4>No assets found in vault</h4>
-          <p>Upload videos or images above to start storing them securely.</p>
+          <p style={{ fontSize: '3rem' }}>🪐</p>
+          <h4>Space is empty</h4>
+          <p>Upload your files above to store them here.</p>
         </div>
       ) : (
         <div className="media-grid">
@@ -297,7 +290,7 @@ export default function App() {
                       <button
                         className="play-overlay-btn"
                         onClick={() => setActiveMedia(item)}
-                        title="Play Fullscreen"
+                        title="Play"
                       >
                         ▶
                       </button>
@@ -322,12 +315,11 @@ export default function App() {
                       className="btn-action-view"
                       onClick={() => setActiveMedia(item)}
                     >
-                      {item.type === 'video' ? '▶ Watch' : '👁 View'}
+                      {item.type === 'video' ? '▶ Play' : '👁 View'}
                     </button>
                     <button
                       className="btn-action-delete"
                       onClick={() => handleDelete(item._id)}
-                      title="Delete Permanently"
                     >
                       🗑
                     </button>
@@ -339,7 +331,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Cinematic Media Theatre Modal */}
+      {/* Media Player Modal */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
