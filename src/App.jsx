@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 const API_BASE = 'https://vault-app-eqhu.onrender.com';
@@ -24,11 +24,37 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeMedia, setActiveMedia] = useState(null);
 
+  const videoRef = useRef(null);
+
   useEffect(() => {
     if (user) {
       fetchItems();
     }
   }, [user]);
+
+  // Background Audio & Lock Screen Player Controls
+  useEffect(() => {
+    if (activeMedia && activeMedia.type === 'video' && 'mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: activeMedia.name,
+        artist: 'MEHRA SPACE',
+        album: activeMedia.folder || 'Vault Media'
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (videoRef.current) videoRef.current.play();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (videoRef.current) videoRef.current.pause();
+      });
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        if (videoRef.current) videoRef.current.currentTime = Math.max(videoRef.current.currentTime - (details.seekOffset || 10), 0);
+      });
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        if (videoRef.current) videoRef.current.currentTime = Math.min(videoRef.current.currentTime + (details.seekOffset || 10), videoRef.current.duration);
+      });
+    }
+  }, [activeMedia]);
 
   const fetchItems = async () => {
     try {
@@ -70,7 +96,39 @@ export default function App() {
     setItems([]);
   };
 
-  // Upload Simulation & Request
+  // Direct Browser Download Helper
+  const handleDownload = async (url, filename) => {
+    try {
+      const fileUrl = getMediaUrl(url);
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'media_asset';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      window.open(getMediaUrl(url), '_blank');
+    }
+  };
+
+  // Picture-in-Picture Floating Mode
+  const togglePictureInPicture = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (videoRef.current) {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error('Picture-in-Picture error:', error);
+    }
+  };
+
+  // Upload Handler
   const handleUpload = async (e) => {
     e.preventDefault();
 
@@ -90,7 +148,6 @@ export default function App() {
     setUploading(true);
     setProgress(15);
 
-    // Smooth Progress Bar ticker
     const progressTimer = setInterval(() => {
       setProgress((prev) => (prev < 90 ? prev + Math.floor(Math.random() * 10) + 5 : 90));
     }, 200);
@@ -142,7 +199,6 @@ export default function App() {
           const inp = document.getElementById('media-upload-input');
           if (inp) inp.value = '';
 
-          // Show Success Toast
           setToastText(
             uploadMode === 'file'
               ? 'Asset Uploaded Successfully!'
@@ -286,7 +342,6 @@ export default function App() {
 
       {/* Upload Zone */}
       <section className="upload-card">
-        {/* Interactive Tilt & Mirror Cards */}
         <div className="upload-methods-grid">
           <div
             className={`method-card ${uploadMode === 'file' ? 'active' : ''}`}
@@ -361,7 +416,6 @@ export default function App() {
           </button>
         </form>
 
-        {/* Holographic 100% Progress Bar */}
         {uploading && (
           <div className="progress-container">
             <div className="progress-header">
@@ -428,6 +482,7 @@ export default function App() {
                         className="preview-media"
                         preload="metadata"
                         crossOrigin="anonymous"
+                        playsInline
                       />
                       <button
                         className="play-overlay-btn"
@@ -460,6 +515,13 @@ export default function App() {
                       {item.type === 'video' ? '▶ Play' : '👁 View'}
                     </button>
                     <button
+                      className="btn-action-download"
+                      onClick={() => handleDownload(item.url, item.name)}
+                      title="Download to Device"
+                    >
+                      ⬇️
+                    </button>
+                    <button
                       className="btn-action-delete"
                       onClick={() => handleDelete(item._id)}
                     >
@@ -473,26 +535,46 @@ export default function App() {
         </div>
       )}
 
-      {/* Fullscreen Theatre Modal */}
+      {/* Fullscreen Theatre Modal with PiP Background Player */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{activeMedia.name}</h3>
-              <button
-                className="btn-close-modal"
-                onClick={() => setActiveMedia(null)}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                {activeMedia.type === 'video' && (
+                  <button
+                    className="btn-pip-modal"
+                    onClick={togglePictureInPicture}
+                    title="Floating Background Player"
+                  >
+                    📺 Mini/Background
+                  </button>
+                )}
+                <button
+                  className="btn-action-download-modal"
+                  onClick={() => handleDownload(activeMedia.url, activeMedia.name)}
+                  title="Download File"
+                >
+                  ⬇️ Download
+                </button>
+                <button
+                  className="btn-close-modal"
+                  onClick={() => setActiveMedia(null)}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="modal-player-box">
               {activeMedia.type === 'video' ? (
                 <video
+                  ref={videoRef}
                   src={getMediaUrl(activeMedia.url)}
                   controls
                   autoPlay
                   crossOrigin="anonymous"
+                  playsInline
                   className="modal-media-elem"
                 />
               ) : (
