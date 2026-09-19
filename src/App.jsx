@@ -550,8 +550,6 @@ export default function App() {
                       preload="metadata"
                       crossOrigin="anonymous"
                       playsInline
-                      onClick={() => setActiveMedia(item)}
-                      style={{ cursor: 'pointer' }}
                     />
                     <button
                       className="play-overlay-btn"
