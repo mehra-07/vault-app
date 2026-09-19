@@ -550,6 +550,8 @@ export default function App() {
                       preload="metadata"
                       crossOrigin="anonymous"
                       playsInline
+                      onClick={() => setActiveMedia(item)}
+                      style={{ cursor: 'pointer' }}
                     />
                     <button
                       className="play-overlay-btn"
@@ -599,7 +601,7 @@ export default function App() {
         })}
       </div>
 
-      {/* FULLSCREEN THEATRE MODAL (WITH BACK BUTTON) */}
+      {/* FULLSCREEN THEATRE MODAL (WITH PROMINENT BACK BUTTON) */}
       {activeMedia && (
         <div className="modal-overlay" onClick={() => setActiveMedia(null)}>
           <div className="modal-theatre" onClick={(e) => e.stopPropagation()}>
@@ -608,7 +610,7 @@ export default function App() {
                 <button
                   className="btn-back-vault"
                   onClick={() => setActiveMedia(null)}
-                  style={{ padding: '0.45rem 1rem', fontSize: '0.8rem' }}
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
                 >
                   ← Back to Vault
                 </button>
