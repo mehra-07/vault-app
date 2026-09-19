@@ -23,9 +23,15 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
 
-  // Download States
+  // Regular Download States
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
+
+  // BONUS SOCIAL DOWNLOADER MODAL STATES
+  const [showBonusModal, setShowBonusModal] = useState(false);
+  const [bonusUrl, setBonusUrl] = useState('');
+  const [bonusFormat, setBonusFormat] = useState('video'); // 'video' or 'audio'
+  const [bonusLoading, setBonusLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -187,6 +193,64 @@ export default function App() {
     }
   };
 
+  // BONUS SOCIAL DOWNLOAD HANDLER (YT, Insta, FB, TikTok, X)
+  const handleBonusDownload = async (e) => {
+    e.preventDefault();
+    if (!bonusUrl.trim()) {
+      alert('Please paste a valid video or post link first!');
+      return;
+    }
+
+    setBonusLoading(true);
+    try {
+      // Safe Universal Multi-Platform API Gateway
+      const cleanUrl = encodeURIComponent(bonusUrl.trim());
+      const serviceGateway = `https://api.cobalt.tools/api/json`;
+      
+      const response = await fetch(serviceGateway, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: bonusUrl.trim(),
+          isAudioOnly: bonusFormat === 'audio',
+          aFormat: 'mp3',
+          vQuality: '1080'
+        })
+      });
+
+      const data = await response.json();
+      if (data && data.url) {
+        // Direct Download Trigger
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.href = data.url;
+        downloadAnchor.target = '_blank';
+        downloadAnchor.download = `MehraSpace_${Date.now()}.${bonusFormat === 'audio' ? 'mp3' : 'mp4'}`;
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+
+        setShowBonusModal(false);
+        setBonusUrl('');
+        setToastText(`⚡ ${bonusFormat.toUpperCase()} Download Started!`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3500);
+      } else {
+        // Fallback Instant Redirection
+        window.open(`https://snapinsta.app/?url=${cleanUrl}`, '_blank');
+        setShowBonusModal(false);
+      }
+    } catch (err) {
+      // Fallback Engine
+      window.open(`https://cobalt.tools/?url=${encodeURIComponent(bonusUrl.trim())}`, '_blank');
+      setShowBonusModal(false);
+    } finally {
+      setBonusLoading(false);
+    }
+  };
+
   const togglePictureInPicture = async () => {
     try {
       if (document.pictureInPictureElement) {
@@ -338,11 +402,19 @@ export default function App() {
     <div className="vault-container">
       {/* Top Header */}
       <header className="vault-header">
-        <div className="logo-badge">
+        <div className="logo-badge" title="Hover me for orbital spin!">
           <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
           <div className="logo-text">
             <h1 className="logo-title-animated">MEHRA SPACE</h1>
             <span className="logo-subtitle">Private Storage Vault</span>
+            {/* BONUS FOR YOU CLICKABLE BOX */}
+            <div
+              className="bonus-banner-trigger"
+              onClick={() => setShowBonusModal(true)}
+              title="Click to download YouTube, Instagram & Social media videos"
+            >
+              🎁 Bonus for You <span style={{ opacity: 0.8 }}>[Click Here]</span>
+            </div>
           </div>
         </div>
 
@@ -629,7 +701,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DOWNLOAD MODAL */}
+      {/* REGULAR MEDIA DOWNLOAD MODAL */}
       {downloadModalItem && (
         <div className="modal-overlay" onClick={() => !downloadingFormat && setDownloadModalItem(null)}>
           <div className="download-choice-card" onClick={(e) => e.stopPropagation()}>
@@ -676,6 +748,70 @@ export default function App() {
                 Cancel
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* BONUS FOR YOU: SOCIAL MEDIA DOWNLOADER MODAL */}
+      {showBonusModal && (
+        <div className="modal-overlay" onClick={() => !bonusLoading && setShowBonusModal(false)}>
+          <div className="bonus-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-bonus-modal" onClick={() => setShowBonusModal(false)}>
+              ✕
+            </button>
+            <div className="bonus-header">
+              <div style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>🎁</div>
+              <h3>Universal Media Extractor</h3>
+              <p>Paste any video/audio link from YouTube, Instagram, Facebook, TikTok or X</p>
+            </div>
+
+            <div className="social-icons-row">
+              <span className="social-pill">🔴 YouTube</span>
+              <span className="social-pill">📸 Instagram</span>
+              <span className="social-pill">🔵 Facebook</span>
+              <span className="social-pill">🎵 TikTok</span>
+              <span className="social-pill">🐦 Twitter / X</span>
+            </div>
+
+            <form onSubmit={handleBonusDownload}>
+              <div className="bonus-input-group">
+                <input
+                  type="url"
+                  className="bonus-input-field"
+                  placeholder="https://www.youtube.com/... or instagram.com/reel/..."
+                  value={bonusUrl}
+                  onChange={(e) => setBonusUrl(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="bonus-format-selector">
+                <div
+                  className={`bonus-format-card ${bonusFormat === 'video' ? 'active' : ''}`}
+                  onClick={() => setBonusFormat('video')}
+                >
+                  <span className="icon">🎬</span>
+                  <strong>Video (MP4)</strong>
+                  <span>High Definition 1080p</span>
+                </div>
+                <div
+                  className={`bonus-format-card ${bonusFormat === 'audio' ? 'active' : ''}`}
+                  onClick={() => setBonusFormat('audio')}
+                >
+                  <span className="icon">🎵</span>
+                  <strong>Audio (MP3)</strong>
+                  <span>High Bitrate 320kbps</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn-bonus-download-now"
+                disabled={bonusLoading}
+              >
+                {bonusLoading ? '⚡ Extracting Media...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
+              </button>
+            </form>
           </div>
         </div>
       )}
