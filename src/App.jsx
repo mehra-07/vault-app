@@ -154,7 +154,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // FAILSAFE DIRECT FORCE DOWNLOAD (Handles CORS + Cloudinary Attachment Flag)
+  // FAILSAFE DIRECT FORCE DOWNLOAD FOR VAULT MEDIA
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -164,7 +164,6 @@ export default function App() {
 
     try {
       if (format === 'video' || downloadModalItem.type !== 'video') {
-        // If Cloudinary URL, inject fl_attachment to trigger instant direct download without opening tab
         let downloadUrl = rawUrl;
         if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
           downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
@@ -177,7 +176,6 @@ export default function App() {
         a.click();
         document.body.removeChild(a);
       } else if (format === 'audio') {
-        // Fetch audio stream & decode
         const response = await fetch(rawUrl, { mode: 'cors' });
         const arrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -194,8 +192,6 @@ export default function App() {
         setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
       }
     } catch (err) {
-      console.warn('Audio blob decode failed, switching to direct audio stream fallback...', err);
-      // Fallback: If Web Audio decode has a CORS issue, trigger direct attachment link
       let fallbackUrl = rawUrl;
       if (rawUrl.includes('cloudinary.com') && rawUrl.includes('/upload/')) {
         fallbackUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
@@ -212,55 +208,61 @@ export default function App() {
     }
   };
 
-  // BONUS SOCIAL DOWNLOAD HANDLER
+  // MULTI-ENGINE UNIVERSAL SOCIAL MEDIA DOWNLOADER (NO CAPTCHA / NO CLOUDFLARE BOT CHECK)
   const handleBonusDownload = async (e) => {
     e.preventDefault();
-    if (!bonusUrl.trim()) {
-      alert('Please paste a valid video or post link first!');
+    const link = bonusUrl.trim();
+    if (!link) {
+      alert('Please paste a valid video or reel link first!');
       return;
     }
 
     setBonusLoading(true);
+
     try {
-      const cleanUrl = encodeURIComponent(bonusUrl.trim());
-      const serviceGateway = `https://api.cobalt.tools/api/json`;
-      
-      const response = await fetch(serviceGateway, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: bonusUrl.trim(),
-          isAudioOnly: bonusFormat === 'audio',
-          aFormat: 'mp3',
-          vQuality: '1080'
-        })
-      });
+      // 1. YouTube & Shorts detection
+      if (link.includes('youtube.com') || link.includes('youtu.be')) {
+        let ytId = '';
+        if (link.includes('shorts/')) {
+          ytId = link.split('shorts/')[1]?.split('?')[0];
+        } else if (link.includes('watch?v=')) {
+          ytId = link.split('watch?v=')[1]?.split('&')[0];
+        } else if (link.includes('youtu.be/')) {
+          ytId = link.split('youtu.be/')[1]?.split('?')[0];
+        }
 
-      const data = await response.json();
-      if (data && data.url) {
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.href = data.url;
-        downloadAnchor.target = '_blank';
-        downloadAnchor.download = `MehraSpace_${Date.now()}.${bonusFormat === 'audio' ? 'mp3' : 'mp4'}`;
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        document.body.removeChild(downloadAnchor);
-
-        setShowBonusModal(false);
-        setBonusUrl('');
-        setToastText(`⚡ ${bonusFormat.toUpperCase()} Download Started!`);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3500);
-      } else {
-        window.open(`https://snapinsta.app/?url=${cleanUrl}`, '_blank');
-        setShowBonusModal(false);
+        if (bonusFormat === 'audio') {
+          // Direct MP3 engine
+          window.open(`https://ytmp3.nu/?url=${encodeURIComponent(link)}`, '_blank');
+        } else {
+          // Direct Video MP4 engine
+          window.open(`https://y2mate.nu/en-IN/${ytId ? ytId : encodeURIComponent(link)}`, '_blank');
+        }
+      } 
+      // 2. Instagram Reels / Stories / Posts
+      else if (link.includes('instagram.com')) {
+        window.open(`https://snapinsta.to/?url=${encodeURIComponent(link)}`, '_blank');
+      } 
+      // 3. Facebook Videos
+      else if (link.includes('facebook.com') || link.includes('fb.watch')) {
+        window.open(`https://fdown.net/download.php?url=${encodeURIComponent(link)}`, '_blank');
+      } 
+      // 4. TikTok Videos
+      else if (link.includes('tiktok.com')) {
+        window.open(`https://snaptik.app/en-us?url=${encodeURIComponent(link)}`, '_blank');
+      } 
+      // 5. Twitter / X or Any other universal link
+      else {
+        window.open(`https://en.savefrom.net/398/?url=${encodeURIComponent(link)}`, '_blank');
       }
-    } catch (err) {
-      window.open(`https://cobalt.tools/?url=${encodeURIComponent(bonusUrl.trim())}`, '_blank');
+
+      setToastText(`⚡ Ready! Download opened cleanly.`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3500);
       setShowBonusModal(false);
+      setBonusUrl('');
+    } catch (err) {
+      alert('Error launching downloader. Please check the URL.');
     } finally {
       setBonusLoading(false);
     }
@@ -805,7 +807,7 @@ export default function App() {
                 >
                   <span className="icon">🎬</span>
                   <strong>Video (MP4)</strong>
-                  <span>High Definition 1080p</span>
+                  <span>Direct High Quality</span>
                 </div>
                 <div
                   className={`bonus-format-card ${bonusFormat === 'audio' ? 'active' : ''}`}
@@ -822,7 +824,7 @@ export default function App() {
                 className="btn-bonus-download-now"
                 disabled={bonusLoading}
               >
-                {bonusLoading ? '⚡ Extracting Media...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
+                {bonusLoading ? '⚡ Opening Direct Download...' : `⚡ Download ${bonusFormat.toUpperCase()} Now`}
               </button>
             </form>
           </div>
