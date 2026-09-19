@@ -707,7 +707,7 @@ export default function App() {
       )}
 
       {/* ======================================================= */}
-      {/* COMING SOON LAB SHOWCASE MODAL (EXACTLY 2 CARDS) */}
+      {/* COMING SOON LAB SHOWCASE MODAL (EXACTLY 2 CARDS + BACK) */}
       {/* ======================================================= */}
       {showComingSoon && (
         <div className="modal-overlay" onClick={() => setShowComingSoon(false)}>
@@ -722,8 +722,8 @@ export default function App() {
               <p>Next-Gen High Speed Web Tools Under Active Development</p>
             </div>
 
-            {/* 2 PROMINENT CARDS GRID */}
-            <div className="cs-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+            {/* SIDE-BY-SIDE 2 CARDS GRID */}
+            <div className="cs-grid">
               
               {/* CARD 1: PDF & IMAGE STUDIO */}
               <div className="cs-card">
@@ -755,6 +755,13 @@ export default function App() {
                 <div className="cs-status-pill">🔒 Coming Soon</div>
               </div>
 
+            </div>
+
+            {/* BACK TO VAULT BUTTON */}
+            <div className="cs-footer-actions">
+              <button className="btn-back-vault" onClick={() => setShowComingSoon(false)}>
+                ← Back to Vault
+              </button>
             </div>
           </div>
         </div>
