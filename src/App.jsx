@@ -27,9 +27,6 @@ export default function App() {
   const [downloadModalItem, setDownloadModalItem] = useState(null);
   const [downloadingFormat, setDownloadingFormat] = useState(false);
 
-  // BONUS SOCIAL DOWNLOADER MODAL STATES
-  const [showBonusModal, setShowBonusModal] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeMedia, setActiveMedia] = useState(null);
@@ -151,7 +148,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // DIRECT VAULT MEDIA DOWNLOAD
+  // DIRECT VAULT MEDIA DOWNLOAD (FORCE DOWNLOAD NO EXTRA TABS)
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -356,18 +353,11 @@ export default function App() {
     <div className="vault-container">
       {/* Top Header */}
       <header className="vault-header">
-        <div className="logo-badge" title="Hover me for orbital spin!">
+        <div className="logo-badge" title="Hover for 3D orbital spin!">
           <span className="planet-wrapper"><span className="logo-icon">🪐</span></span>
           <div className="logo-text">
             <h1 className="logo-title-animated">MEHRA SPACE</h1>
             <span className="logo-subtitle">Private Storage Vault</span>
-            <div
-              className="bonus-banner-trigger"
-              onClick={() => setShowBonusModal(true)}
-              title="Click to download YouTube, Instagram & Social media videos"
-            >
-              🎁 Bonus for You <span style={{ opacity: 0.8 }}>[Click Here]</span>
-            </div>
           </div>
         </div>
 
@@ -653,7 +643,7 @@ export default function App() {
         </div>
       )}
 
-      {/* REGULAR MEDIA DOWNLOAD MODAL */}
+      {/* 3D TILT DOWNLOAD CHOICE MODAL (FOR VAULT MEDIA) */}
       {downloadModalItem && (
         <div className="modal-overlay" onClick={() => !downloadingFormat && setDownloadModalItem(null)}>
           <div className="download-choice-card" onClick={(e) => e.stopPropagation()}>
@@ -669,7 +659,7 @@ export default function App() {
             ) : (
               <div className="download-options-grid">
                 <button
-                  className="download-option-btn"
+                  className="download-option-btn video-opt"
                   onClick={() => downloadAs('video')}
                 >
                   <span className="opt-icon">🎬</span>
@@ -680,7 +670,7 @@ export default function App() {
                 </button>
 
                 <button
-                  className="download-option-btn"
+                  className="download-option-btn audio-opt"
                   onClick={() => downloadAs('audio')}
                 >
                   <span className="opt-icon">🎵</span>
@@ -700,39 +690,6 @@ export default function App() {
                 Cancel
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* BONUS: RELIABLE IN-MODAL EXTRACTOR (NO BLANK TABS) */}
-      {showBonusModal && (
-        <div className="modal-overlay" onClick={() => setShowBonusModal(false)}>
-          <div className="bonus-modal-card" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-bonus-modal" onClick={() => setShowBonusModal(false)}>
-              ✕
-            </button>
-            <div className="bonus-header">
-              <div style={{ fontSize: '2.4rem', marginBottom: '0.2rem' }}>🎁</div>
-              <h3>Universal Media Extractor</h3>
-              <p>Paste any YouTube, Instagram, Facebook or TikTok link below to download instantly</p>
-            </div>
-
-            <div className="social-icons-row">
-              <span className="social-pill">🔴 YouTube</span>
-              <span className="social-pill">📸 Instagram</span>
-              <span className="social-pill">🔵 Facebook</span>
-              <span className="social-pill">🎵 TikTok</span>
-              <span className="social-pill">🐦 Twitter / X</span>
-            </div>
-
-            {/* EMBEDDED DIRECT CONVERTER - 100% IN-APP, NEVER OPENS ABOUT:BLANK */}
-            <div style={{ width: '100%', height: '360px', borderRadius: '18px', overflow: 'hidden', border: '1px solid var(--border-glass)', background: '#0b101d' }}>
-              <iframe
-                src="https://convert2mp3.club/api/widget"
-                title="Universal Downloader"
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              />
-            </div>
           </div>
         </div>
       )}
