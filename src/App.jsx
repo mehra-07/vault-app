@@ -106,7 +106,7 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Force Save Blob Helper (No new tab opened!)
+  // Direct Force Download Blob Trigger
   const triggerSaveBlob = (blob, filename) => {
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -118,12 +118,11 @@ export default function App() {
     setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  // Convert AudioBuffer to WAV format
+  // Convert Decoded Audio to clean WAV blob
   const audioBufferToWav = (buffer) => {
     const numOfChan = buffer.numberOfChannels;
     const length = buffer.length * numOfChan * 2 + 44;
     const out = new DataView(new ArrayBuffer(length));
-    const channels = [];
     let sampleRate = buffer.sampleRate;
     let offset = 0;
     let pos = 0;
@@ -145,6 +144,7 @@ export default function App() {
     setUint32(0x61746164); // "data"
     setUint32(length - pos - 4);
 
+    const channels = [];
     for (let i = 0; i < buffer.numberOfChannels; i++) {
       channels.push(buffer.getChannelData(i));
     }
@@ -161,7 +161,7 @@ export default function App() {
     return new Blob([out], { type: 'audio/wav' });
   };
 
-  // Direct Force Download Video / Audio
+  // Direct Download Video / Audio Function
   const downloadAs = async (format) => {
     if (!downloadModalItem) return;
     setDownloadingFormat(true);
@@ -173,11 +173,9 @@ export default function App() {
       const baseName = downloadModalItem.name.replace(/\.[^/.]+$/, '');
 
       if (format === 'video' || downloadModalItem.type !== 'video') {
-        // Direct Video / Image Download
         const ext = downloadModalItem.name.split('.').pop() || 'mp4';
         triggerSaveBlob(originalBlob, `${baseName}.${ext}`);
       } else if (format === 'audio') {
-        // Extract Audio Stream
         const arrayBuffer = await originalBlob.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -197,7 +195,6 @@ export default function App() {
     if (item.type === 'video') {
       setDownloadModalItem(item);
     } else {
-      // If image/document, download directly
       downloadModalItemDirect(item);
     }
   };
@@ -212,7 +209,7 @@ export default function App() {
     }
   };
 
-  // Picture in Picture
+  // Picture-in-Picture Floating Mode
   const togglePictureInPicture = async () => {
     try {
       if (document.pictureInPictureElement) {
@@ -717,7 +714,7 @@ export default function App() {
                 >
                   <span className="opt-icon">🎵</span>
                   <div className="opt-text">
-                    <strong>Audio Only (.wav / mp3)</strong>
+                    <strong>Audio Only (.wav)</strong>
                     <span>Extract voice / music only</span>
                   </div>
                 </button>

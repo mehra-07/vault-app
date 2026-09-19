@@ -236,7 +236,6 @@ body {
   left: 200%;
 }
 
-/* Click Shockwave Effect */
 .method-card:active {
   transform: scale(0.95);
   filter: brightness(1.3) contrast(1.2);
@@ -621,7 +620,6 @@ body {
   color: var(--accent-cyan);
 }
 
-/* DOWNLOAD BUTTONS (CARD & MODAL) */
 .btn-action-download {
   background: rgba(0, 242, 254, 0.1);
   border: 1px solid rgba(0, 242, 254, 0.3);
@@ -719,6 +717,27 @@ body {
   text-overflow: ellipsis;
 }
 
+.btn-pip-modal {
+  background: rgba(127, 0, 255, 0.2);
+  border: 1px solid var(--accent-purple);
+  color: #c084fc;
+  padding: 0.45rem 1rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.btn-pip-modal:hover {
+  background: var(--accent-purple);
+  color: white;
+  box-shadow: 0 0 15px rgba(127, 0, 255, 0.5);
+}
+
 .btn-close-modal {
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -751,6 +770,199 @@ body {
   width: 100%;
   max-height: 520px;
   outline: none;
+}
+
+/* DOWNLOAD MODAL WITH 3D GLASS TILT & MIRROR SHINE */
+.download-choice-card {
+  background: rgba(14, 20, 36, 0.92);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  border-radius: 28px;
+  max-width: 520px;
+  width: 90%;
+  padding: 2.2rem 2rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 242, 254, 0.2);
+  position: relative;
+  overflow: hidden;
+  animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.download-choice-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-green));
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.download-choice-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.download-choice-header h3 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, #ffffff, var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.download-choice-header p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  display: inline-block;
+  max-width: 90%;
+}
+
+.download-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+  perspective: 1000px;
+}
+
+.download-option-btn {
+  position: relative;
+  background: rgba(18, 25, 45, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.download-option-btn::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 100%;
+  height: 200%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 70%,
+    transparent 100%
+  );
+  transform: rotate(25deg);
+  transition: left 0.75s ease;
+  pointer-events: none;
+}
+
+.download-option-btn:hover {
+  transform: translateY(-6px) rotateX(6deg) scale(1.03);
+  box-shadow: 0 15px 35px rgba(0, 242, 254, 0.25);
+}
+
+.download-option-btn.video-opt:hover {
+  border-color: var(--accent-cyan);
+}
+
+.download-option-btn.audio-opt:hover {
+  border-color: var(--accent-purple);
+  box-shadow: 0 15px 35px rgba(127, 0, 255, 0.3);
+}
+
+.download-option-btn:hover::before {
+  left: 200%;
+}
+
+.download-option-btn:active {
+  transform: scale(0.94);
+  filter: brightness(1.3);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.6);
+}
+
+.download-option-btn .opt-icon {
+  font-size: 2.8rem;
+  transition: transform 0.3s ease;
+  filter: drop-shadow(0 0 15px rgba(0, 242, 254, 0.4));
+}
+
+.download-option-btn.audio-opt .opt-icon {
+  filter: drop-shadow(0 0 15px rgba(127, 0, 255, 0.5));
+}
+
+.download-option-btn:hover .opt-icon {
+  transform: scale(1.18);
+}
+
+.download-option-btn .opt-text strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 0.2rem;
+}
+
+.download-option-btn .opt-text span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+  display: block;
+}
+
+.btn-cancel-download {
+  width: 100%;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-download:hover {
+  background: rgba(255, 51, 102, 0.15);
+  border-color: var(--accent-red);
+  color: #ff6b8b;
+}
+
+.download-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left-color: var(--accent-cyan);
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* AUTH FORM */
@@ -835,6 +1047,12 @@ body {
 
 @media (max-width: 768px) {
   .upload-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .download-options-grid {
     grid-template-columns: 1fr;
   }
 }
