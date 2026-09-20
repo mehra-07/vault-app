@@ -1,15 +1,27 @@
 {
+  "background_color": "#0b0f19",
+  "dir": "ltr",
+  "display": "standalone",
   "name": "Mehra Space Vault",
+  "orientation": "any",
+  "scope": "/",
   "short_name": "Mehra Space",
   "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0b0f19",
   "theme_color": "#0b0f19",
   "icons": [
     {
-      "src": "/icon.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "https://vault-app-red.vercel.app/favicon.svg",
+      "type": "image/svg+xml",
+      "isSquare": false,
+      "isPng": false,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 0,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
     }
-  ]
+  ],
+  "id": "com.mehraspace.vault",
+  "description": "Private storage vault to securely manage your files and media."
 }
