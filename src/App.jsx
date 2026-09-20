@@ -46,9 +46,12 @@ export default function App() {
     });
   };
 
+  // Fetch items whenever user logs in or changes
   useEffect(() => {
     if (user) {
       fetchItems();
+      const interval = setInterval(fetchItems, 10000); // Auto-sync data across devices every 10s
+      return () => clearInterval(interval);
     }
   }, [user]);
 
@@ -66,6 +69,7 @@ export default function App() {
   }, [activeMedia]);
 
   const fetchItems = async () => {
+    if (!user) return;
     try {
       const res = await fetch(`${API_BASE}/api/vault?username=${encodeURIComponent(user)}`);
       const data = await res.json();
@@ -91,6 +95,7 @@ export default function App() {
         const loggedUser = data.user || authForm.username;
         setUser(loggedUser);
         localStorage.setItem('vault_user', loggedUser);
+        fetchItems();
       } else {
         alert(data.message || 'Authentication failed');
       }
@@ -111,7 +116,7 @@ export default function App() {
     return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // TRUE BLOB DOWNLOAD (DIRECT DEVICE SAVE)
+  // TRUE BLOB DOWNLOAD (DIRECT DEVICE SAVE ACROSS ALL DEVICES)
   const handleTrueDownload = async (item) => {
     const rawUrl = getMediaUrl(item.url);
     setToastText(`⬇️ Downloading ${item.name}...`);
@@ -321,7 +326,7 @@ export default function App() {
                 onClick={() => setShowComingSoon(true)}
                 title="Click to preview upcoming tools & features"
               >
-                🚀 Coming Soon Lab <span style={{ opacity: 0.85 }}>[Click Here]</span>[cite: 13]
+                🚀 Coming Soon Lab [Click Here]
               </div>
             </div>
           </div>
