@@ -4,6 +4,8 @@ import './App.css';
 const API_BASE = 'https://vault-app-eqhu.onrender.com';
 
 export default function App() {
+  const [showVideo, setShowVideo] = useState(true);
+
   const [user, setUser] = useState(localStorage.getItem('vault_user') || '');
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ username: '', password: '' });
@@ -253,6 +255,29 @@ export default function App() {
     if (activeFilter === 'image') return matchesSearch && item.type === 'image';
     return matchesSearch;
   });
+
+  // Intro Video Splash Screen
+  if (showVideo) {
+    return (
+      <video 
+        src="/1789846310586-276468114.mp4" 
+        autoPlay 
+        muted 
+        playsInline 
+        onEnded={() => setShowVideo(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          objectFit: 'cover',
+          zIndex: 99999,
+          backgroundColor: '#000'
+        }}
+      />
+    );
+  }
 
   if (!user) {
     return (
