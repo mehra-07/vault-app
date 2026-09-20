@@ -34,6 +34,7 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(true);
 
   // COMING SOON MODAL STATE
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -43,12 +44,14 @@ export default function App() {
   const [activeMedia, setActiveMedia] = useState(null);
 
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
 
   // Upload shuru hote hi random track select karna
   useEffect(() => {
     if (uploading) {
       const randomIndex = Math.floor(Math.random() * uploadTracks.length);
       setCurrentTrackIndex(randomIndex);
+      setIsPlayingAudio(true);
     }
   }, [uploading]);
 
@@ -344,8 +347,9 @@ export default function App() {
       {/* Background Upload Audio Player */}
       {uploading && (
         <audio
+          ref={audioRef}
           src={uploadTracks[currentTrackIndex]}
-          autoPlay
+          autoPlay={isPlayingAudio}
           onEnded={() => {
             const nextIndex = Math.floor(Math.random() * uploadTracks.length);
             setCurrentTrackIndex(nextIndex);
@@ -507,11 +511,38 @@ export default function App() {
 
           {uploading && (
             <div className="progress-container">
-              <div className="progress-header">
-                <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD... (Playing Audio)</span>
-                <span>{progress}%</span>
+              <div className="progress-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (audioRef.current) {
+                        if (isPlayingAudio) {
+                          audioRef.current.pause();
+                        } else {
+                          audioRef.current.play();
+                        }
+                      }
+                      setIsPlayingAudio(!isPlayingAudio);
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#fff',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer'
+                    }}
+                    title={isPlayingAudio ? "Pause Audio" : "Play Audio"}
+                  >
+                    {isPlayingAudio ? '⏸ Pause' : '▶ Play'}
+                  </button>
+                  <span style={{ color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>TRANSFERRING TO CLOUD...</span>
+                </div>
+                <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{progress}%</span>
               </div>
-              <div className="progress-track">
+              <div className="progress-track" style={{ marginTop: '6px' }}>
                 <div className="progress-fill" style={{ width: `${progress}%` }}></div>
               </div>
             </div>
