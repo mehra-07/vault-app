@@ -1,10 +1,14 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const multer = require('multer');
-const { google } = require('googleapis');
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
+import express from 'express';
+import mongoose from 'mongoose';
+import multer from 'multer';
+import { google } from 'googleapis';
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,7 +35,7 @@ const upload = multer({ storage: storage });
 
 // Google Drive Auth using Service Account
 const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(__dirname, 'credentials.json'), // Ensure credentials file is present or use env variables
+    keyFile: path.join(__dirname, 'credentials.json'),
     scopes: ['https://www.googleapis.com/auth/drive.file']
 });
 
@@ -54,7 +58,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
             {
                 name: fileName,
-                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID] // Optional: target folder ID
+                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID]
             },
             {
                 headers: {
