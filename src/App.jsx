@@ -3,6 +3,15 @@ import './App.css';
 
 const API_BASE = 'https://vault-app-eqhu.onrender.com';
 
+// Random Background Upload Music Playlist (Public folder se)
+const uploadTracks = [
+  '/WhatsApp Audio 2026-09-20 at 19.27.40.mpeg',
+  '/WhatsApp Audio 2026-09-20 at 19.27.39.mpeg',
+  '/WhatsApp Audio 2026-09-20 at 19.27.41.mpeg',
+  '/WhatsApp Audio 2026-09-20 at 19.27.43.mpeg',
+  '/WhatsApp Audio 2026-09-20 at 19.27.42.mpeg'
+];
+
 export default function App() {
   const [showVideo, setShowVideo] = useState(true);
 
@@ -19,11 +28,12 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [driveUrl, setDriveUrl] = useState('');
   
-  // Progress & Toasts
+  // Progress & Toasts & Upload Audio Playlist State
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
   // COMING SOON MODAL STATE
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -33,6 +43,14 @@ export default function App() {
   const [activeMedia, setActiveMedia] = useState(null);
 
   const videoRef = useRef(null);
+
+  // Upload shuru hote hi random track select karna
+  useEffect(() => {
+    if (uploading) {
+      const randomIndex = Math.floor(Math.random() * uploadTracks.length);
+      setCurrentTrackIndex(randomIndex);
+    }
+  }, [uploading]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -323,6 +341,18 @@ export default function App() {
 
   return (
     <>
+      {/* Background Upload Audio Player */}
+      {uploading && (
+        <audio
+          src={uploadTracks[currentTrackIndex]}
+          autoPlay
+          onEnded={() => {
+            const nextIndex = Math.floor(Math.random() * uploadTracks.length);
+            setCurrentTrackIndex(nextIndex);
+          }}
+        />
+      )}
+
       {/* LIVE WALLPAPER BACKGROUND VIDEO & OVERLAY */}
       <div className="bg-video-container">
         <video
@@ -478,7 +508,7 @@ export default function App() {
           {uploading && (
             <div className="progress-container">
               <div className="progress-header">
-                <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD...</span>
+                <span style={{ color: 'var(--accent-cyan)' }}>TRANSFERRING TO CLOUD... (Playing Audio)</span>
                 <span>{progress}%</span>
               </div>
               <div className="progress-track">
