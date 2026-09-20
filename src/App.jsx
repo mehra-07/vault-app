@@ -3,15 +3,6 @@ import './App.css';
 
 const API_BASE = 'https://vault-app-eqhu.onrender.com';
 
-// Random Background Upload Music Playlist (Public folder se)
-const uploadTracks = [
-  '/WhatsApp Audio 2026-09-20 at 19.27.40.mpeg',
-  '/WhatsApp Audio 2026-09-20 at 19.27.39.mpeg',
-  '/WhatsApp Audio 2026-09-20 at 19.27.41.mpeg',
-  '/WhatsApp Audio 2026-09-20 at 19.27.43.mpeg',
-  '/WhatsApp Audio 2026-09-20 at 19.27.42.mpeg'
-];
-
 export default function App() {
   const [showVideo, setShowVideo] = useState(true);
 
@@ -28,13 +19,11 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [driveUrl, setDriveUrl] = useState('');
   
-  // Progress & Toasts & Upload Audio Playlist State
+  // Progress & Toasts State
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // COMING SOON MODAL STATE
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -44,33 +33,6 @@ export default function App() {
   const [activeMedia, setActiveMedia] = useState(null);
 
   const videoRef = useRef(null);
-  const audioRef = useRef(null);
-
-  // Upload shuru hote hi random track select karna aur play trigger karna
-  useEffect(() => {
-    if (uploading) {
-      const randomIndex = Math.floor(Math.random() * uploadTracks.length);
-      setCurrentTrackIndex(randomIndex);
-      setIsPlayingAudio(true);
-      
-      // Auto-play attempt with user gesture fallback
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.play().then(() => {
-            setIsPlayingAudio(true);
-          }).catch(err => {
-            console.log("Autoplay prevented by browser, user can click Play button:", err);
-            setIsPlayingAudio(false);
-          });
-        }
-      }, 300);
-    } else {
-      setIsPlayingAudio(false);
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    }
-  }, [uploading]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -361,21 +323,6 @@ export default function App() {
 
   return (
     <>
-      {/* Background Upload Audio Player */}
-      {uploading && (
-        <audio
-          ref={audioRef}
-          src={uploadTracks[currentTrackIndex]}
-          onEnded={() => {
-            const nextIndex = Math.floor(Math.random() * uploadTracks.length);
-            setCurrentTrackIndex(nextIndex);
-            setTimeout(() => {
-              if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
-            }, 100);
-          }}
-        />
-      )}
-
       {/* LIVE WALLPAPER BACKGROUND VIDEO & OVERLAY */}
       <div className="bg-video-container">
         <video
@@ -531,34 +478,7 @@ export default function App() {
           {uploading && (
             <div className="progress-container">
               <div className="progress-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (audioRef.current) {
-                        if (isPlayingAudio) {
-                          audioRef.current.pause();
-                          setIsPlayingAudio(false);
-                        } else {
-                          audioRef.current.play().then(() => setIsPlayingAudio(true)).catch(e => console.log(e));
-                        }
-                      }
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.1)',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#fff',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer'
-                    }}
-                    title={isPlayingAudio ? "Pause Audio" : "Play Audio"}
-                  >
-                    {isPlayingAudio ? '⏸ Pause' : '▶ Play Audio'}
-                  </button>
-                  <span style={{ color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>TRANSFERRING TO CLOUD...</span>
-                </div>
+                <span style={{ color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>TRANSFERRING TO CLOUD...</span>
                 <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{progress}%</span>
               </div>
               <div className="progress-track" style={{ marginTop: '6px' }}>
@@ -757,7 +677,7 @@ export default function App() {
 
                 <div className="cs-card">
                   <div className="cs-card-icon">🎬</div>
-                  <div className="cs-card-title">Universal Social Extractor</div>
+                  <h4 className="cs-card-title">Universal Social Extractor</h4>
                   <p className="cs-card-desc">High-speed lossless media downloader for YouTube, Instagram Reels, Facebook & TikTok links.</p>
                   <div className="cs-tags">
                     <span className="cs-tag">YouTube / Insta</span>
