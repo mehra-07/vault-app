@@ -34,7 +34,7 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastText, setToastText] = useState('');
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(true);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // COMING SOON MODAL STATE
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -46,12 +46,29 @@ export default function App() {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
-  // Upload shuru hote hi random track select karna
+  // Upload shuru hote hi random track select karna aur play trigger karna
   useEffect(() => {
     if (uploading) {
       const randomIndex = Math.floor(Math.random() * uploadTracks.length);
       setCurrentTrackIndex(randomIndex);
       setIsPlayingAudio(true);
+      
+      // Auto-play attempt with user gesture fallback
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play().then(() => {
+            setIsPlayingAudio(true);
+          }).catch(err => {
+            console.log("Autoplay prevented by browser, user can click Play button:", err);
+            setIsPlayingAudio(false);
+          });
+        }
+      }, 300);
+    } else {
+      setIsPlayingAudio(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     }
   }, [uploading]);
 
@@ -349,10 +366,12 @@ export default function App() {
         <audio
           ref={audioRef}
           src={uploadTracks[currentTrackIndex]}
-          autoPlay={isPlayingAudio}
           onEnded={() => {
             const nextIndex = Math.floor(Math.random() * uploadTracks.length);
             setCurrentTrackIndex(nextIndex);
+            setTimeout(() => {
+              if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
+            }, 100);
           }}
         />
       )}
@@ -519,11 +538,11 @@ export default function App() {
                       if (audioRef.current) {
                         if (isPlayingAudio) {
                           audioRef.current.pause();
+                          setIsPlayingAudio(false);
                         } else {
-                          audioRef.current.play();
+                          audioRef.current.play().then(() => setIsPlayingAudio(true)).catch(e => console.log(e));
                         }
                       }
-                      setIsPlayingAudio(!isPlayingAudio);
                     }}
                     style={{
                       background: 'rgba(255,255,255,0.1)',
@@ -536,7 +555,7 @@ export default function App() {
                     }}
                     title={isPlayingAudio ? "Pause Audio" : "Play Audio"}
                   >
-                    {isPlayingAudio ? '⏸ Pause' : '▶ Play'}
+                    {isPlayingAudio ? '⏸ Pause' : '▶ Play Audio'}
                   </button>
                   <span style={{ color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>TRANSFERRING TO CLOUD...</span>
                 </div>
@@ -738,7 +757,7 @@ export default function App() {
 
                 <div className="cs-card">
                   <div className="cs-card-icon">🎬</div>
-                  <h4 className="cs-card-title">Universal Social Extractor</h4>
+                  <div className="cs-card-title">Universal Social Extractor</div>
                   <p className="cs-card-desc">High-speed lossless media downloader for YouTube, Instagram Reels, Facebook & TikTok links.</p>
                   <div className="cs-tags">
                     <span className="cs-tag">YouTube / Insta</span>
